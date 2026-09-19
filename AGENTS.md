@@ -16,6 +16,9 @@ If you can't ask (no interactive channel), state the assumption you're making an
 pick the smallest option (e.g. no persistence layer) rather than scaffolding a
 full stack nobody asked for.
 
+Database (if persistence is needed): PostgreSQL 15 in the `db` compose service.
+`DATABASE_URL` uses host `db`, never `localhost`; it lives in `.env.local`.
+
 ## Adding features: Flex, not hand-wiring
 
 Install new capabilities with `composer require <package>` (e.g. `symfony/lock`,
@@ -63,10 +66,19 @@ Three specifics worth spelling out, because they are easy to get wrong:
 
 ## Everyday workflow
 
-- Run the app with `symfony serve -d`, and commands with `symfony console ...`
-  (or `bin/console` when the Symfony CLI isn't available).
-- When something fails, read `var/log/dev.log` and the web profiler
-  (`/_profiler`) before changing code.
+- The app runs in Docker (services: `php`, `nginx`, `db`). Never run `php`,
+  `composer` or `bin/console` on the host. Run everything inside the `php`
+  container, always with `-T` (no TTY, otherwise it hangs):
+  `docker compose exec -T php bin/console ...`
+  `docker compose exec -T php composer require ...`
+  `docker compose exec -T php php bin/phpunit`
+  Every command in this file (`php`, `composer`, `bin/console`, `vendor/bin/*`)
+  is meant to be prefixed this way.
+  The Symfony CLI is not installed: don't use `symfony serve` / `symfony console`.
+  Start the stack with `docker compose up -d`; the app is at http://localhost:8080
+  (profiler: http://localhost:8080/_profiler).
+- When something fails, read `var/log/dev.log`, `docker compose logs nginx php`,
+  and the web profiler (`/_profiler`) before changing code.
 - If `maker-bundle` is installed, prefer `bin/console make:*` with every argument
   passed up front and `--no-interaction` where supported: makers prompt on a
   terminal by default, which hangs a non-interactive shell. If a maker still
@@ -106,3 +118,28 @@ things up in the project instead of relying on memory:
 - Read the installed source and docblocks under `vendor/`.
 - Docs: https://symfony.com/doc/current/ (switch to the version matching
   `composer.json` if it differs).
+  ## Context & Feature Management
+
+Read the `context/current-feature.md` to understand the active task.
+
+## Commands
+
+**1. Command: `Create the feature <feature-name>`**
+When instructed to create a feature, execute these steps autonomously and stop:
+1.create a git branch  feature/<feature-name>
+2. Create or update a specific markdown file in `context/features/` (e.g., `context/features/<feature-name>.md`) with the specifications.
+3. Update `context/current-feature.md` to reflect the active status, goals, and notes.
+
+**2. Command: `Implement the feature`**
+When instructed to implement the feature, execute these steps autonomously and sequentially:
+1. Generate the required code **strictly by using** the maker bundle via the Docker workflow (e.g., `docker compose exec -T php bin/console make:...`). 
+   * **CRITICAL RULE:** Do NOT write PHP code (Controllers, Services, Entities, etc.) manually from scratch. 
+   * If a specific file or logic is impossible to generate using `bin/console`, you **MUST stop and ask for my permission** before writing or editing the code manually.
+2. Generate the tests (`WebTestCase` or `KernelTestCase`), preferring `bin/console make:test` if applicable.
+3. Run the tests using the Docker workflow: `docker compose exec -T php php bin/phpunit`.
+
+**3. Command: `Tidy up`**
+When the user says `Tidy up`, execute this sequence autonomously:
+1. Update the history in `context/current-feature.md` with a summary of the completed feature.
+2. Clean the data (Status, Goals, Notes) from `context/current-feature.md` to reset it for the next task.
+3. Execute the git operations: add changes, commit with a descriptive message, merge the branch (if instructed), delete the branch, and push.

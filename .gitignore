@@ -1,4 +1,3 @@
-
 ###> symfony/framework-bundle ###
 /.env.local
 /.env.local.php
@@ -8,3 +7,21 @@
 /var/
 /vendor/
 ###< symfony/framework-bundle ###
+
+###> IDEs & Editors ###
+/.idea/
+/.vscode/
+*.sublime-project
+*.sublime-workspace
+###< IDEs & Editors ###
+
+###> OS files ###
+.DS_Store
+Thumbs.db
+###< OS files ###
+
+###> Docker & Tools ###
+docker-compose.override.yml
+.phpunit.result.cache
+.php-cs-fixer.cache
+###< Docker & Tools ###
