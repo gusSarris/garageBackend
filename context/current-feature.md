@@ -12,6 +12,14 @@ None
 None
 
 ## History
+- **create-work-orders-table** (Completed: 2026-09-20):
+  - Scaffolded `WorkOrder` entity and repository via MakerBundle with UUIDv7 primary key.
+  - Connected `WorkOrder` with `ManyToOne` relations to `Garage`, `Customer`, and `Vehicle` with `onDelete: 'CASCADE'`.
+  - Configured `OneToMany` collections on `Garage`, `Customer`, and `Vehicle` with `cascade: ['remove']` and `orphanRemoval: true`.
+  - Added SMS/notification lifecycle fields (`date`, `status`, `scheduledTime`, `description`, `price`, `odometerKm`, `notes`, `partsNotes`, `checkedInAt`, `completedAt`, `pickedUpAt`).
+  - Added composite indexes: `(garage_id, status)`, `(vehicle_id, date)`, `(customer_id, date)`, `(garage_id, date)`.
+  - Generated and executed migration `Version20260920102321` across dev and test environments.
+  - Implemented KernelTestCase integration tests (`tests/WorkOrderPersistenceTest.php`). Total 13 tests, 130 assertions passing across the test suite.
 - **create-vehicles-table** (Completed: 2026-09-20):
   - Scaffolded `Vehicle` entity and repository via MakerBundle with UUIDv7 primary key.
   - Connected `Vehicle` with `ManyToOne` to `Garage` and `Customer` with `onDelete: 'CASCADE'`.

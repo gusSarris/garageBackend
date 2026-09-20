@@ -3,6 +3,8 @@
 namespace App\Entity;
 
 use App\Repository\VehicleRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
@@ -103,10 +105,17 @@ class Vehicle
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private ?Customer $customer = null;
 
+    /**
+     * @var Collection<int, WorkOrder>
+     */
+    #[ORM\OneToMany(targetEntity: WorkOrder::class, mappedBy: 'vehicle', cascade: ['remove'], orphanRemoval: true)]
+    private Collection $workOrders;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
         $this->allowReminders = true;
+        $this->workOrders = new ArrayCollection();
     }
 
     public function getId(): ?Uuid
@@ -422,6 +431,36 @@ class Vehicle
     public function setCustomer(?Customer $customer): static
     {
         $this->customer = $customer;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, WorkOrder>
+     */
+    public function getWorkOrders(): Collection
+    {
+        return $this->workOrders;
+    }
+
+    public function addWorkOrder(WorkOrder $workOrder): static
+    {
+        if (!$this->workOrders->contains($workOrder)) {
+            $this->workOrders->add($workOrder);
+            $workOrder->setVehicle($this);
+        }
+
+        return $this;
+    }
+
+    public function removeWorkOrder(WorkOrder $workOrder): static
+    {
+        if ($this->workOrders->removeElement($workOrder)) {
+            // set the owning side to null (unless already changed)
+            if ($workOrder->getVehicle() === $this) {
+                $workOrder->setVehicle(null);
+            }
+        }
 
         return $this;
     }

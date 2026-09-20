@@ -74,10 +74,17 @@ class Customer
     #[ORM\OneToMany(targetEntity: Vehicle::class, mappedBy: 'customer', cascade: ['remove'], orphanRemoval: true)]
     private Collection $vehicles;
 
+    /**
+     * @var Collection<int, WorkOrder>
+     */
+    #[ORM\OneToMany(targetEntity: WorkOrder::class, mappedBy: 'customer', cascade: ['remove'], orphanRemoval: true)]
+    private Collection $workOrders;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
         $this->vehicles = new ArrayCollection();
+        $this->workOrders = new ArrayCollection();
     }
 
     public function getId(): ?Uuid
@@ -289,6 +296,36 @@ class Customer
             // set the owning side to null (unless already changed)
             if ($vehicle->getCustomer() === $this) {
                 $vehicle->setCustomer(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, WorkOrder>
+     */
+    public function getWorkOrders(): Collection
+    {
+        return $this->workOrders;
+    }
+
+    public function addWorkOrder(WorkOrder $workOrder): static
+    {
+        if (!$this->workOrders->contains($workOrder)) {
+            $this->workOrders->add($workOrder);
+            $workOrder->setCustomer($this);
+        }
+
+        return $this;
+    }
+
+    public function removeWorkOrder(WorkOrder $workOrder): static
+    {
+        if ($this->workOrders->removeElement($workOrder)) {
+            // set the owning side to null (unless already changed)
+            if ($workOrder->getCustomer() === $this) {
+                $workOrder->setCustomer(null);
             }
         }
 
