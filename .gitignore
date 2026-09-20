@@ -25,3 +25,8 @@ docker-compose.override.yml
 .phpunit.result.cache
 .php-cs-fixer.cache
 ###< Docker & Tools ###
+
+###> phpunit/phpunit ###
+/phpunit.xml
+/.phpunit.cache/
+###< phpunit/phpunit ###
