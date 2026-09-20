@@ -1,17 +1,25 @@
 # Current Feature
 
-- **Feature Name**: None
-- **Branch**: None
+- **Feature Name**: none
+- **Branch**: main
 - **Status**: Idle
-- **Specification**: None
+- **Specification**: none
 
 ## Goals
-None
 
 ## Notes
-None
 
 ## History
+- **create-messaging-schema** (Completed: 2026-09-20):
+  - Scaffolded `Notification` and `SmsTemplate` entities and repositories via MakerBundle with native UUIDv7 primary keys.
+  - Implemented `Notification` audit logging for Native Deep Links (`sms:`, `viber:`) and EasySMS API with delivery status, cost, provider tracking, and error messaging.
+  - Implemented `SmsTemplate` with workshop customization, dynamic variables, and active state management.
+  - Connected `Notification` to `Garage` (`ManyToOne`, CASCADE), `Customer` (`ManyToOne`, CASCADE), `Vehicle` (`ManyToOne`, SET NULL), and `WorkOrder` (`ManyToOne`, SET NULL).
+  - Connected `SmsTemplate` to `Garage` (`ManyToOne`, CASCADE).
+  - Configured `OneToMany` collections on `Garage`, `Customer`, `Vehicle`, and `WorkOrder`.
+  - Added composite indexes: `(garage_id, created_at)`, `(garage_id, type)`, `(customer_id, created_at)`, `(work_order_id)` on notification, and `(garage_id, type)`, `(garage_id, is_active)` on sms_template.
+  - Generated and executed migration `Version20260920132426` across dev and test environments.
+  - Implemented KernelTestCase integration tests (`tests/MessagingPersistenceTest.php`). Total 23 tests, 235 assertions passing across the test suite.
 - **create-users-table** (Completed: 2026-09-20):
   - Installed `symfony/security-bundle` via Flex and configured security password hasher and user provider.
   - Scaffolded `User` entity and repository via MakerBundle with UUIDv7 primary key and database table `app_user`.

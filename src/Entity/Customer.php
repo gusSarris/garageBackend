@@ -80,11 +80,18 @@ class Customer
     #[ORM\OneToMany(targetEntity: WorkOrder::class, mappedBy: 'customer', cascade: ['remove'], orphanRemoval: true)]
     private Collection $workOrders;
 
+    /**
+     * @var Collection<int, Notification>
+     */
+    #[ORM\OneToMany(targetEntity: Notification::class, mappedBy: 'customer', cascade: ['remove'], orphanRemoval: true)]
+    private Collection $notifications;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
         $this->vehicles = new ArrayCollection();
         $this->workOrders = new ArrayCollection();
+        $this->notifications = new ArrayCollection();
     }
 
     public function getId(): ?Uuid
@@ -326,6 +333,36 @@ class Customer
             // set the owning side to null (unless already changed)
             if ($workOrder->getCustomer() === $this) {
                 $workOrder->setCustomer(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Notification>
+     */
+    public function getNotifications(): Collection
+    {
+        return $this->notifications;
+    }
+
+    public function addNotification(Notification $notification): static
+    {
+        if (!$this->notifications->contains($notification)) {
+            $this->notifications->add($notification);
+            $notification->setCustomer($this);
+        }
+
+        return $this;
+    }
+
+    public function removeNotification(Notification $notification): static
+    {
+        if ($this->notifications->removeElement($notification)) {
+            // set the owning side to null (unless already changed)
+            if ($notification->getCustomer() === $this) {
+                $notification->setCustomer(null);
             }
         }
 

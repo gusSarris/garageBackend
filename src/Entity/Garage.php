@@ -78,6 +78,18 @@ class Garage
     #[ORM\OneToMany(targetEntity: User::class, mappedBy: 'garage', cascade: ['remove'], orphanRemoval: true)]
     private Collection $users;
 
+    /**
+     * @var Collection<int, Notification>
+     */
+    #[ORM\OneToMany(targetEntity: Notification::class, mappedBy: 'garage', cascade: ['remove'], orphanRemoval: true)]
+    private Collection $notifications;
+
+    /**
+     * @var Collection<int, SmsTemplate>
+     */
+    #[ORM\OneToMany(targetEntity: SmsTemplate::class, mappedBy: 'garage', cascade: ['remove'], orphanRemoval: true)]
+    private Collection $smsTemplates;
+
     public function __construct()
     {
         $this->customers = new ArrayCollection();
@@ -87,6 +99,8 @@ class Garage
         $this->vehicles = new ArrayCollection();
         $this->workOrders = new ArrayCollection();
         $this->users = new ArrayCollection();
+        $this->notifications = new ArrayCollection();
+        $this->smsTemplates = new ArrayCollection();
     }
 
     public function getId(): ?Uuid
@@ -352,6 +366,66 @@ class Garage
             // set the owning side to null (unless already changed)
             if ($user->getGarage() === $this) {
                 $user->setGarage(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Notification>
+     */
+    public function getNotifications(): Collection
+    {
+        return $this->notifications;
+    }
+
+    public function addNotification(Notification $notification): static
+    {
+        if (!$this->notifications->contains($notification)) {
+            $this->notifications->add($notification);
+            $notification->setGarage($this);
+        }
+
+        return $this;
+    }
+
+    public function removeNotification(Notification $notification): static
+    {
+        if ($this->notifications->removeElement($notification)) {
+            // set the owning side to null (unless already changed)
+            if ($notification->getGarage() === $this) {
+                $notification->setGarage(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, SmsTemplate>
+     */
+    public function getSmsTemplates(): Collection
+    {
+        return $this->smsTemplates;
+    }
+
+    public function addSmsTemplate(SmsTemplate $smsTemplate): static
+    {
+        if (!$this->smsTemplates->contains($smsTemplate)) {
+            $this->smsTemplates->add($smsTemplate);
+            $smsTemplate->setGarage($this);
+        }
+
+        return $this;
+    }
+
+    public function removeSmsTemplate(SmsTemplate $smsTemplate): static
+    {
+        if ($this->smsTemplates->removeElement($smsTemplate)) {
+            // set the owning side to null (unless already changed)
+            if ($smsTemplate->getGarage() === $this) {
+                $smsTemplate->setGarage(null);
             }
         }
 
