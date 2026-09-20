@@ -53,7 +53,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?\DateTimeImmutable $updatedAt = null;
 
     #[ORM\ManyToOne(inversedBy: 'users')]
-    #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
     private ?Garage $garage = null;
 
     public function __construct()
@@ -208,6 +208,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->garage = $garage;
 
         return $this;
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return in_array('ROLE_SUPER_ADMIN', $this->getRoles(), true);
     }
 
     public function eraseCredentials(): void

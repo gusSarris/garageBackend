@@ -23,10 +23,8 @@ final class JWTCreatedListener
         $payload['roles'] = $user->getRoles();
 
         $garage = $user->getGarage();
-        if ($garage !== null) {
-            $payload['garageId'] = $garage->getId()?->toRfc4122();
-            $payload['garageName'] = $garage->getName();
-        }
+        $payload['garageId'] = $garage?->getId()?->toRfc4122();
+        $payload['garageName'] = $garage?->getName();
 
         $event->setData($payload);
     }
