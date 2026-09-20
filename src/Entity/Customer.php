@@ -3,6 +3,8 @@
 namespace App\Entity;
 
 use App\Repository\CustomerRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
@@ -66,9 +68,16 @@ class Customer
     #[ORM\JoinColumn(nullable: false)]
     private ?Garage $garage = null;
 
+    /**
+     * @var Collection<int, Vehicle>
+     */
+    #[ORM\OneToMany(targetEntity: Vehicle::class, mappedBy: 'customer', cascade: ['remove'], orphanRemoval: true)]
+    private Collection $vehicles;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
+        $this->vehicles = new ArrayCollection();
     }
 
     public function getId(): ?Uuid
@@ -252,6 +261,36 @@ class Customer
     public function setGarage(?Garage $garage): static
     {
         $this->garage = $garage;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Vehicle>
+     */
+    public function getVehicles(): Collection
+    {
+        return $this->vehicles;
+    }
+
+    public function addVehicle(Vehicle $vehicle): static
+    {
+        if (!$this->vehicles->contains($vehicle)) {
+            $this->vehicles->add($vehicle);
+            $vehicle->setCustomer($this);
+        }
+
+        return $this;
+    }
+
+    public function removeVehicle(Vehicle $vehicle): static
+    {
+        if ($this->vehicles->removeElement($vehicle)) {
+            // set the owning side to null (unless already changed)
+            if ($vehicle->getCustomer() === $this) {
+                $vehicle->setCustomer(null);
+            }
+        }
 
         return $this;
     }
