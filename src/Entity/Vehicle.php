@@ -111,11 +111,18 @@ class Vehicle
     #[ORM\OneToMany(targetEntity: WorkOrder::class, mappedBy: 'vehicle', cascade: ['remove'], orphanRemoval: true)]
     private Collection $workOrders;
 
+    /**
+     * @var Collection<int, Notification>
+     */
+    #[ORM\OneToMany(targetEntity: Notification::class, mappedBy: 'vehicle')]
+    private Collection $notifications;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
         $this->allowReminders = true;
         $this->workOrders = new ArrayCollection();
+        $this->notifications = new ArrayCollection();
     }
 
     public function getId(): ?Uuid
@@ -459,6 +466,36 @@ class Vehicle
             // set the owning side to null (unless already changed)
             if ($workOrder->getVehicle() === $this) {
                 $workOrder->setVehicle(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Notification>
+     */
+    public function getNotifications(): Collection
+    {
+        return $this->notifications;
+    }
+
+    public function addNotification(Notification $notification): static
+    {
+        if (!$this->notifications->contains($notification)) {
+            $this->notifications->add($notification);
+            $notification->setVehicle($this);
+        }
+
+        return $this;
+    }
+
+    public function removeNotification(Notification $notification): static
+    {
+        if ($this->notifications->removeElement($notification)) {
+            // set the owning side to null (unless already changed)
+            if ($notification->getVehicle() === $this) {
+                $notification->setVehicle(null);
             }
         }
 
