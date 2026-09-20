@@ -34,11 +34,13 @@ security:
             provider: app_user_provider
 
     role_hierarchy:
+        ROLE_SUPER_ADMIN: [ROLE_GARAGE_ADMIN, ROLE_ALLOWED_TO_SWITCH]
         ROLE_GARAGE_ADMIN: [ROLE_MECHANIC]
 
     # Note: Only the *first* matching rule is applied
     access_control:
         - { path: ^/api/login_check$, roles: PUBLIC_ACCESS }
+        - { path: ^/api/admin, roles: ROLE_SUPER_ADMIN }
         - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
 
 when@test:

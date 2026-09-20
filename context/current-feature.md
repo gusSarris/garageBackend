@@ -10,6 +10,17 @@
 ## Notes
 
 ## History
+- **platform-super-admin** (Completed: 2026-09-20):
+  - Made `User::$garage` relation nullable (`JoinColumn(nullable: true)`) to support workshop-agnostic Platform Super Admins.
+  - Generated and executed migration `Version20260920151459` across dev and test environments (`ALTER TABLE app_user ALTER garage_id DROP NOT NULL`).
+  - Added `ROLE_SUPER_ADMIN` in `config/packages/security.yaml` with role hierarchy (`ROLE_SUPER_ADMIN -> [ROLE_GARAGE_ADMIN, ROLE_ALLOWED_TO_SWITCH]`) and access control (`^/api/admin`).
+  - Updated `JWTCreatedListener` and `AuthController::me()` to handle `null` garage context for Super Admins.
+  - Implemented `app:create-super-admin` CLI command (`App\Command\CreateSuperAdminCommand`) for bootstrapping platform super admins with hashed credentials.
+  - Implemented `App\Controller\Api\Admin\GarageManagementController` with endpoints:
+    - `GET /api/admin/garages` returning all workshops with aggregated stats (`userCount`, `customerCount`, `vehicleCount`, `workOrderCount`).
+    - `POST /api/admin/garages` onboarding workshops and primary workshop admins in an atomic transaction with `CreateGarageRequest` DTO.
+    - `PATCH /api/admin/garages/{id}/subscription` updating subscription tier and active status with `UpdateSubscriptionRequest` DTO.
+  - Implemented comprehensive functional tests (`tests/Admin/GarageManagementTest.php`) verifying RBAC, onboarding, subscription updates, and CLI command. All 36 tests and 330 assertions passing across test suite.
 - **jwt-authentication-api** (Completed: 2026-09-20):
   - Installed and configured `lexik/jwt-authentication-bundle` via Composer inside Docker container.
   - Generated SSL keypair for JWT signing (`config/jwt/private.pem`, `config/jwt/public.pem`) and secured keypaths via `.gitignore`.
