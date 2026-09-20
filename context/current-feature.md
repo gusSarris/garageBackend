@@ -1,17 +1,21 @@
 # Current Feature
 
-- **Feature Name**: `create-garages-and-customers-tables`
-- **Branch**: `feature/create-garages-and-customers-tables`
-- **Status**: Active (Ready for Implementation)
-- **Specification**: [create-garages-and-customers-tables.md](file:///home/clickdrive/Desktop/api/backendGarage/context/features/create-garages-and-customers-tables.md)
+- **Feature Name**: None
+- **Branch**: None
+- **Status**: Idle
+- **Specification**: None
 
 ## Goals
-1. Scaffold `Garage` entity and repository with maker bundle.
-2. Scaffold `Customer` entity and repository with maker bundle, including `ManyToOne` relationship to `Garage`.
-3. Generate Doctrine migration using `bin/console make:migration`.
-4. Apply migration using `bin/console doctrine:migrations:migrate`.
-5. Generate and execute persistence tests via `bin/console make:test` and `bin/phpunit`.
+None
 
 ## Notes
-- Strict adherence to AGENTS.md: Use MakerBundle (`docker compose exec -T php bin/console make:...`) without manual PHP scaffolding.
-- Request user permission before any manual edits if maker bundle cannot accomplish specific logic.
+None
+
+## History
+- **create-garages-and-customers-tables** (Completed: 2026-09-20):
+  - Added `symfony/uid` via Flex for native UUIDv7 support.
+  - Scaffolded `Garage` and `Customer` entities and repositories via MakerBundle with UUIDv7 primary keys.
+  - Configured `ManyToOne` (Customer -> Garage) and `OneToMany` (Garage -> Customer) with `orphanRemoval: true` and cascade remove.
+  - Added composite indexes on Customer table: `(garage_id, phone)`, `(garage_id, last_name)`, `(garage_id, created_at)`.
+  - Generated and executed migration `Version20260920060134`.
+  - Implemented persistence integration tests (`tests/GarageCustomerPersistenceTest.php`) verifying UUIDv7, B2B fields, and cascade deletion. 3 tests, 26 assertions passing.
