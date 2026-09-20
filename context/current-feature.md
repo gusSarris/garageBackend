@@ -12,6 +12,15 @@ None
 None
 
 ## History
+- **create-users-table** (Completed: 2026-09-20):
+  - Installed `symfony/security-bundle` via Flex and configured security password hasher and user provider.
+  - Scaffolded `User` entity and repository via MakerBundle with UUIDv7 primary key and database table `app_user`.
+  - Implemented `UserInterface` and `PasswordAuthenticatedUserInterface` supporting `ROLE_GARAGE_ADMIN` (owner) and `ROLE_MECHANIC` with security role hierarchy.
+  - Connected `User` with `ManyToOne` relation to `Garage` (tenant) with `onDelete: 'CASCADE'`.
+  - Configured `OneToMany` collection on `Garage` with `cascade: ['remove']` and `orphanRemoval: true`.
+  - Added composite indexes: `UNIQUE (email)`, `(garage_id)`, and `(garage_id, is_active)`.
+  - Generated and executed migration `Version20260920125157` across dev and test environments.
+  - Implemented KernelTestCase integration tests (`tests/UserPersistenceTest.php`). Total 17 tests, 161 assertions passing across the test suite.
 - **create-work-orders-table** (Completed: 2026-09-20):
   - Scaffolded `WorkOrder` entity and repository via MakerBundle with UUIDv7 primary key.
   - Connected `WorkOrder` with `ManyToOne` relations to `Garage`, `Customer`, and `Vehicle` with `onDelete: 'CASCADE'`.
