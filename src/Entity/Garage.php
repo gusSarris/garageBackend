@@ -66,6 +66,12 @@ class Garage
     #[ORM\OneToMany(targetEntity: Vehicle::class, mappedBy: 'garage', cascade: ['remove'], orphanRemoval: true)]
     private Collection $vehicles;
 
+    /**
+     * @var Collection<int, WorkOrder>
+     */
+    #[ORM\OneToMany(targetEntity: WorkOrder::class, mappedBy: 'garage', cascade: ['remove'], orphanRemoval: true)]
+    private Collection $workOrders;
+
     public function __construct()
     {
         $this->customers = new ArrayCollection();
@@ -73,6 +79,7 @@ class Garage
         $this->isActive = true;
         $this->createdAt = new \DateTimeImmutable();
         $this->vehicles = new ArrayCollection();
+        $this->workOrders = new ArrayCollection();
     }
 
     public function getId(): ?Uuid
@@ -278,6 +285,36 @@ class Garage
             // set the owning side to null (unless already changed)
             if ($vehicle->getGarage() === $this) {
                 $vehicle->setGarage(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, WorkOrder>
+     */
+    public function getWorkOrders(): Collection
+    {
+        return $this->workOrders;
+    }
+
+    public function addWorkOrder(WorkOrder $workOrder): static
+    {
+        if (!$this->workOrders->contains($workOrder)) {
+            $this->workOrders->add($workOrder);
+            $workOrder->setGarage($this);
+        }
+
+        return $this;
+    }
+
+    public function removeWorkOrder(WorkOrder $workOrder): static
+    {
+        if ($this->workOrders->removeElement($workOrder)) {
+            // set the owning side to null (unless already changed)
+            if ($workOrder->getGarage() === $this) {
+                $workOrder->setGarage(null);
             }
         }
 
