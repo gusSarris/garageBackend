@@ -2,14 +2,22 @@
 
 - **Feature Name**: none
 - **Branch**: main
-- **Status**: Idle
-- **Specification**: none
+- **Status**: idle
+- **Specification**: 
 
 ## Goals
 
 ## Notes
 
 ## History
+- **jwt-authentication-api** (Completed: 2026-09-20):
+  - Installed and configured `lexik/jwt-authentication-bundle` via Composer inside Docker container.
+  - Generated SSL keypair for JWT signing (`config/jwt/private.pem`, `config/jwt/public.pem`) and secured keypaths via `.gitignore`.
+  - Configured `config/packages/security.yaml` with `login` (`/api/login_check`) and `api` (`/api`) firewalls, role hierarchy, and access control.
+  - Configured `api_login_check` route in `config/routes.yaml`.
+  - Implemented `JWTCreatedListener` on `lexik_jwt_authentication.on_jwt_created` injecting user metadata (`id`, `email`, `fullName`, `roles`) and tenant metadata (`garageId`, `garageName`) into JWT payload.
+  - Implemented `GET /api/auth/me` endpoint in `App\Controller\Api\AuthController` returning authenticated user profile and garage context.
+  - Implemented functional `WebTestCase` tests (`tests/AuthApiTest.php`) covering login, authentication failure, token payload claims, and `/api/auth/me`. 28 tests, 264 assertions passing across entire test suite.
 - **create-messaging-schema** (Completed: 2026-09-20):
   - Scaffolded `Notification` and `SmsTemplate` entities and repositories via MakerBundle with native UUIDv7 primary keys.
   - Implemented `Notification` audit logging for Native Deep Links (`sms:`, `viber:`) and EasySMS API with delivery status, cost, provider tracking, and error messaging.
