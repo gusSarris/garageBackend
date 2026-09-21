@@ -10,6 +10,15 @@
 ## Notes
 
 ## History
+- **admin-garage-user-api** (Completed: 2026-09-21):
+  - Implemented `App\DTO\Admin\CreateGarageUserRequest` with email, name, password, and role validation constraints.
+  - Implemented `App\Command\CreateGarageUserCommand` (`app:create-garage-user`) for secure console provisioning of garage users with role validation and auto-generated secure password option.
+  - Implemented `App\Controller\Api\Admin\GarageUserController` with endpoints:
+    - `GET /api/admin/garages/{garageId}/users` (list users for a tenant).
+    - `POST /api/admin/garages/{garageId}/users` (create user for a tenant).
+    - `DELETE /api/admin/garages/{garageId}/users/{userId}` (delete user from a tenant with tenant isolation check and self-deletion protection).
+  - Protected endpoints with `#[IsGranted('ROLE_SUPER_ADMIN')]`.
+  - Implemented comprehensive functional tests in `tests/Admin/GarageUserManagementTest.php` covering listing, creation, role validation, duplicate email handling, deletion, tenant isolation, and CLI command execution. All 62 tests and 461 assertions passing across entire test suite.
 - **garage-profile-api** (Completed: 2026-09-21):
   - Implemented `App\DTO\Garage\UpdateGarageProfileRequest` mapping request payload with validation constraints (`#[Assert\Email]`, `#[Assert\Length]`) and strictly whitelisting mutable fields (`name`, `email`, `phone`, `address`, `city`, `postalCode`).
   - Implemented `App\Controller\Api\Garage\GarageProfileController` with endpoints:
