@@ -16,28 +16,32 @@ class CustomerRepository extends ServiceEntityRepository
         parent::__construct($registry, Customer::class);
     }
 
-//    /**
-//     * @return Customer[] Returns an array of Customer objects
-//     */
-//    public function findByExampleField($value): array
-//    {
-//        return $this->createQueryBuilder('c')
-//            ->andWhere('c.exampleField = :val')
-//            ->setParameter('val', $value)
-//            ->orderBy('c.id', 'ASC')
-//            ->setMaxResults(10)
-//            ->getQuery()
-//            ->getResult()
-//        ;
-//    }
+    /**
+     * Search customers belonging to a garage with case-insensitive substring matching
+     * on phone, lastName, firstName, companyName, or email.
+     *
+     * @return Customer[]
+     */
+    public function searchByGarage(\App\Entity\Garage $garage, ?string $query = null): array
+    {
+        $qb = $this->createQueryBuilder('c')
+            ->andWhere('c.garage = :garage')
+            ->setParameter('garage', $garage)
+            ->orderBy('c.createdAt', 'DESC');
 
-//    public function findOneBySomeField($value): ?Customer
-//    {
-//        return $this->createQueryBuilder('c')
-//            ->andWhere('c.exampleField = :val')
-//            ->setParameter('val', $value)
-//            ->getQuery()
-//            ->getOneOrNullResult()
-//        ;
-//    }
+        if ($query !== null && trim($query) !== '') {
+            $term = '%' . mb_strtolower(trim($query)) . '%';
+            $qb->andWhere(
+                $qb->expr()->orX(
+                    'LOWER(c.phone) LIKE :term',
+                    'LOWER(c.lastName) LIKE :term',
+                    'LOWER(c.firstName) LIKE :term',
+                    'LOWER(c.companyName) LIKE :term',
+                    'LOWER(c.email) LIKE :term'
+                )
+            )->setParameter('term', $term);
+        }
+
+        return $qb->getQuery()->getResult();
+    }
 }

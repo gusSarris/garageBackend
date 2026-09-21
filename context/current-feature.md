@@ -10,6 +10,13 @@
 ## Notes
 
 ## History
+- **garage-customers-vehicles-api** (Completed: 2026-09-21):
+  - Implemented DTOs: `CreateCustomerRequest`, `UpdateCustomerRequest`, `CreateVehicleRequest`, `UpdateVehicleRequest` with validations for contact information, UUIDs, mechanical specifications, and `Y-m-d` date formats.
+  - Implemented `searchByGarage` query helpers in `CustomerRepository` (case-insensitive substring search on phone, name, company, email) and `VehicleRepository` (case-insensitive search on plate, VIN, make, model, filtering by customer, and `upcoming_kteo` / `upcoming_service` deadline filters).
+  - Implemented `App\Controller\Api\Garage\CustomerController` with CRUD endpoints (`GET /api/garage/customers`, `POST /api/garage/customers`, `GET /api/garage/customers/{id}`, `PATCH /api/garage/customers/{id}`, `DELETE /api/garage/customers/{id}`).
+  - Implemented `App\Controller\Api\Garage\VehicleController` with CRUD endpoints (`GET /api/garage/vehicles`, `POST /api/garage/vehicles`, `GET /api/garage/vehicles/{id}`, `PATCH /api/garage/vehicles/{id}`, `DELETE /api/garage/vehicles/{id}`), license plate normalization, and customer-tenant binding.
+  - Enforced strict tenant isolation via `$user->getGarage()`, returning 400 Bad Request for super admin without garage, and 404 Not Found for cross-tenant entities. Protected with `#[IsGranted('ROLE_MECHANIC')]`.
+  - Implemented comprehensive functional test suite in `tests/Garage/CustomerVehicleManagementTest.php` (12 tests, 93 assertions). Full test suite passing (110 tests, 836 assertions).
 - **staff-management** (Completed: 2026-09-21):
   - Implemented `App\DTO\Garage\CreateStaffRequest` with strict validation (`email`, `fullName`, `password` min 10 + NotCompromisedPassword, case-normalized `role`).
   - Implemented `App\Controller\Api\Garage\GarageStaffController` with endpoints:
