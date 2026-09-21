@@ -33,6 +33,13 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
         $this->getEntityManager()->flush();
     }
 
+    public function countSuperAdmins(): int
+    {
+        $conn = $this->getEntityManager()->getConnection();
+
+        return (int) $conn->fetchOne("SELECT COUNT(*) FROM app_user WHERE roles::text LIKE '%\"ROLE_SUPER_ADMIN\"%'");
+    }
+
 //    /**
 //     * @return User[] Returns an array of User objects
 //     */

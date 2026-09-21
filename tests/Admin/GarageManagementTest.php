@@ -329,10 +329,11 @@ class GarageManagementTest extends WebTestCase
         $email = 'cli_admin_' . $unique . '@clickdrive.io';
         $fullName = 'CLI Platform Admin ' . $unique;
 
+        $commandTester->setInputs(['CliPassword123!']);
         $exitCode = $commandTester->execute([
             'email' => $email,
-            'password' => 'CliPassword123!',
             'full-name' => $fullName,
+            '--force' => true,
         ]);
 
         $this->assertSame(Command::SUCCESS, $exitCode);

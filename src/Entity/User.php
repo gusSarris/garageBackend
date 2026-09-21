@@ -56,6 +56,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
     private ?Garage $garage = null;
 
+    #[ORM\Column(length: 64, unique: true, nullable: true)]
+    private ?string $invitationTokenHash = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $invitationExpiresAt = null;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
@@ -213,6 +219,30 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function isSuperAdmin(): bool
     {
         return in_array('ROLE_SUPER_ADMIN', $this->getRoles(), true);
+    }
+
+    public function getInvitationTokenHash(): ?string
+    {
+        return $this->invitationTokenHash;
+    }
+
+    public function setInvitationTokenHash(?string $invitationTokenHash): static
+    {
+        $this->invitationTokenHash = $invitationTokenHash;
+
+        return $this;
+    }
+
+    public function getInvitationExpiresAt(): ?\DateTimeImmutable
+    {
+        return $this->invitationExpiresAt;
+    }
+
+    public function setInvitationExpiresAt(?\DateTimeImmutable $invitationExpiresAt): static
+    {
+        $this->invitationExpiresAt = $invitationExpiresAt;
+
+        return $this;
     }
 
     public function eraseCredentials(): void

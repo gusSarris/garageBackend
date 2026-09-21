@@ -10,6 +10,17 @@
 ## Notes
 
 ## History
+- **garage-invitation-onboarding** (Completed: 2026-09-21):
+  - Enforced CLI-only creation of Platform Super Admins via `App\Command\CreateSuperAdminCommand` (`app:create-super-admin`) with interactive password prompts (`askHidden`), guardrails against duplicates (`UserRepository::countSuperAdmins`), and required `--force` flag.
+  - Added `invitationTokenHash` (SHA-256 hex, 64 chars, unique index) and `invitationExpiresAt` fields to `App\Entity\User` with database migration `Version20260921135042`.
+  - Implemented `App\Security\UserChecker` registered on the `login` firewall to block pending/inactive accounts (`isActive = false`) from authenticating.
+  - Implemented `App\Service\GarageProvisioner` encapsulating atomic workshop and owner creation, raw token generation, token hashing, and `UniqueConstraintViolationException` handling.
+  - Configured `%app.frontend_url%` in `services.yaml` and rate limiting for `/api/auth/invitation` in `rate_limiter.yaml`.
+  - Updated `POST /api/admin/garages` to issue hashed invites and return activation URL to Super Admin; added `POST /api/admin/garages/{id}/resend-invite` to re-issue and invalidate old tokens; added `app:invite-garage` CLI command.
+  - Implemented public endpoints in `App\Controller\Api\Auth\InvitationController`:
+    - `GET /api/auth/invitation/{token}` verifying token with uniform 404 response for invalid/expired tokens and `Cache-Control: no-store`.
+    - `POST /api/auth/invitation/accept` using `LockMode::PESSIMISTIC_WRITE`, password validation (min 10 + NotCompromisedPassword), activation, and immediate JWT issuance.
+  - Implemented comprehensive functional tests in `tests/Auth/GarageInvitationTest.php` covering single super admin force requirement, onboarding, duplicate email protection, verification, expiration, single-use token lock, inactive user login blocking, owner login post-activation, token re-issuance, and super admin role lockdown. All 74 tests and 630 assertions passing across full test suite.
 - **admin-garage-user-api** (Completed: 2026-09-21):
   - Implemented `App\DTO\Admin\CreateGarageUserRequest` with email, name, password, and role validation constraints.
   - Implemented `App\Command\CreateGarageUserCommand` (`app:create-garage-user`) for secure console provisioning of garage users with role validation and auto-generated secure password option.
