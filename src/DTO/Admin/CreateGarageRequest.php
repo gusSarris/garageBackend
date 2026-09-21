@@ -6,6 +6,9 @@ use Symfony\Component\Validator\Constraints as Assert;
 
 final readonly class CreateGarageRequest
 {
+    public string $ownerEmail;
+    public string $ownerFullName;
+
     public function __construct(
         #[Assert\NotBlank(message: 'Garage name is required')]
         #[Assert\Length(max: 150)]
@@ -31,18 +34,28 @@ final readonly class CreateGarageRequest
         #[Assert\Length(max: 20)]
         public ?string $postalCode = null,
 
-        #[Assert\NotBlank(message: 'Admin email is required')]
-        #[Assert\Email(message: 'Invalid admin email format')]
-        #[Assert\Length(max: 180)]
-        public string $adminEmail = '',
-
-        #[Assert\NotBlank(message: 'Admin full name is required')]
-        #[Assert\Length(max: 150)]
-        public string $adminFullName = '',
-
-        #[Assert\NotBlank(message: 'Admin password is required')]
-        #[Assert\Length(min: 8, minMessage: 'Admin password must be at least 8 characters')]
-        public string $adminPassword = '',
+        ?string $ownerEmail = null,
+        ?string $adminEmail = null,
+        ?string $ownerFullName = null,
+        ?string $adminFullName = null,
+        ?string $adminPassword = null,
     ) {
+        $this->ownerEmail = (string) ($ownerEmail ?? $adminEmail ?? '');
+        $this->ownerFullName = (string) ($ownerFullName ?? $adminFullName ?? '');
+    }
+
+    #[Assert\NotBlank(message: 'Owner email is required')]
+    #[Assert\Email(message: 'Invalid owner email format')]
+    #[Assert\Length(max: 180)]
+    public function getOwnerEmail(): string
+    {
+        return $this->ownerEmail;
+    }
+
+    #[Assert\NotBlank(message: 'Owner full name is required')]
+    #[Assert\Length(max: 150)]
+    public function getOwnerFullName(): string
+    {
+        return $this->ownerFullName;
     }
 }
