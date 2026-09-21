@@ -12,6 +12,13 @@ None
 None
 
 ## History
+- **tenant-status-listener** (Completed: 2026-09-21):
+  - Implemented `App\EventListener\TenantStatusListener` on `KernelEvents::REQUEST` (priority 0) to intercept tenant requests (`^/api/garage`).
+  - Enforced workshop active status (`garage.isActive`) and valid subscription states (`trial`, `active`), returning HTTP 403 Forbidden with structured JSON error payload (`WORKSHOP_INACTIVE_OR_EXPIRED`) on deactivated workshops or expired/cancelled/past_due/suspended subscriptions.
+  - Allowed unauthenticated requests and `/api/auth/me` to remain accessible for authenticated users to inspect status and display renewal prompts.
+  - Enforced bypass for Platform Super Admins (`ROLE_SUPER_ADMIN`) and HTTP 400 Bad Request rejection for non-super-admin accounts without garage context.
+  - Implemented comprehensive functional test suite in `tests/Security/TenantStatusListenerTest.php` (11 tests, 74 assertions). Full test suite passing (134 tests, 985 assertions).
+
 - **garage-work-orders-api** (Completed: 2026-09-21):
   - Implemented DTOs: `CreateWorkOrderRequest` and `UpdateWorkOrderRequest` with validations for UUIDs, description, lifecycle status, date formats, price regex, odometer values, and ISO-8601 timestamps.
   - Implemented `searchByGarage` query helper in `WorkOrderRepository` with eager customer and vehicle joins, filtering by status, customer, vehicle, date, date range, and case-insensitive query substring matching.
