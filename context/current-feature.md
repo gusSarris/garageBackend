@@ -10,6 +10,13 @@
 ## Notes
 
 ## History
+- **garage-profile-api** (Completed: 2026-09-21):
+  - Implemented `App\DTO\Garage\UpdateGarageProfileRequest` mapping request payload with validation constraints (`#[Assert\Email]`, `#[Assert\Length]`) and strictly whitelisting mutable fields (`name`, `email`, `phone`, `address`, `city`, `postalCode`).
+  - Implemented `App\Controller\Api\Garage\GarageProfileController` with endpoints:
+    - `GET /api/garage` retrieving tenant-scoped profile strictly from `$user->getGarage()`.
+    - `PATCH /api/garage` updating editable fields, updating `updatedAt`, and flushing changes, while ignoring read-only/administrative fields (`vatNumber`, `taxOffice`, `subscriptionStatus`, `isActive`, `id`, `createdAt`).
+  - Enforced strict tenant isolation and role restrictions (`ROLE_GARAGE_ADMIN`).
+  - Implemented comprehensive functional tests in `tests/Garage/GarageProfileTest.php` covering profile retrieval, updating, field protection, mechanic access rejection, garage creation rejection, unauthenticated rejection, invalid email handling, and tenant isolation. Total 45 tests, 399 assertions passing across entire test suite.
 - **platform-super-admin** (Completed: 2026-09-20):
   - Made `User::$garage` relation nullable (`JoinColumn(nullable: true)`) to support workshop-agnostic Platform Super Admins.
   - Generated and executed migration `Version20260920151459` across dev and test environments (`ALTER TABLE app_user ALTER garage_id DROP NOT NULL`).
