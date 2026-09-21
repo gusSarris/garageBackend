@@ -72,4 +72,18 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
 
         return $count;
     }
+
+    public function countActiveAdminsByGarageExcluding(Garage $garage, User $excludedUser): int
+    {
+        $users = $this->findBy(['garage' => $garage, 'isActive' => true]);
+        $count = 0;
+        $excludedId = $excludedUser->getId()?->toRfc4122();
+        foreach ($users as $user) {
+            if ($user->getId()?->toRfc4122() !== $excludedId && in_array('ROLE_GARAGE_ADMIN', $user->getRoles(), true)) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
 }
