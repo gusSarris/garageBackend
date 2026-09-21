@@ -290,9 +290,126 @@ class GarageUserManagementTest extends WebTestCase
 
         $this->assertResponseStatusCodeSame(200);
 
-        // Verify entity deleted
-        $userRepo = static::getContainer()->get(UserRepository::class);
+        // Clear identity map on current container's EntityManager
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $userRepo = $em->getRepository(User::class);
         $this->assertNull($userRepo->find($userId));
+
+        // Verify entity row remains in database with soft-delete metadata
+        $filters = $em->getFilters();
+        $filters->disable('soft_delete');
+        $em->clear();
+        $softDeleted = $userRepo->find($userId);
+        $this->assertNotNull($softDeleted);
+        $this->assertNotNull($softDeleted->getDeletedAt());
+        $this->assertFalse($softDeleted->isActive());
+        $filters->enable('soft_delete');
+    }
+
+    public function testCannotDeleteLastGarageAdmin(): void
+    {
+        $superAdmin = $this->createSuperAdmin();
+        $token = $this->getJwtToken($superAdmin);
+
+        $garage = $this->createGarage('last_admin');
+        $admin = $this->createGarageUser($garage, 'ROLE_GARAGE_ADMIN');
+
+        $this->client->request(
+            'DELETE',
+            '/api/admin/garages/' . $garage->getId()->toRfc4122() . '/users/' . $admin->getId()->toRfc4122(),
+            server: ['HTTP_AUTHORIZATION' => 'Bearer ' . $token]
+        );
+
+        $this->assertResponseStatusCodeSame(409);
+        $data = json_decode($this->client->getResponse()->getContent(), true);
+        $this->assertStringContainsString('Cannot delete the last active administrator', $data['error']);
+    }
+
+    public function testDeleteAlreadyDeletedUserReturns404(): void
+    {
+        $superAdmin = $this->createSuperAdmin();
+        $token = $this->getJwtToken($superAdmin);
+
+        $garage = $this->createGarage('del_twice');
+        $user = $this->createGarageUser($garage);
+        $userId = $user->getId()->toRfc4122();
+
+        // First delete -> 200
+        $this->client->request(
+            'DELETE',
+            '/api/admin/garages/' . $garage->getId()->toRfc4122() . '/users/' . $userId,
+            server: ['HTTP_AUTHORIZATION' => 'Bearer ' . $token]
+        );
+        $this->assertResponseStatusCodeSame(200);
+
+        // Second delete -> 404
+        $this->client->request(
+            'DELETE',
+            '/api/admin/garages/' . $garage->getId()->toRfc4122() . '/users/' . $userId,
+            server: ['HTTP_AUTHORIZATION' => 'Bearer ' . $token]
+        );
+        $this->assertResponseStatusCodeSame(404);
+    }
+
+    public function testSoftDeleteClearsInvitationTokenAndPassword(): void
+    {
+        $superAdmin = $this->createSuperAdmin();
+        $token = $this->getJwtToken($superAdmin);
+
+        $garage = $this->createGarage('cleared');
+        $user = $this->createGarageUser($garage);
+        $user->setInvitationTokenHash(hash('sha256', 'some_token'));
+        $user->setInvitationExpiresAt(new \DateTimeImmutable('+7 days'));
+        $this->entityManager->flush();
+
+        $userId = $user->getId()->toRfc4122();
+
+        $this->client->request(
+            'DELETE',
+            '/api/admin/garages/' . $garage->getId()->toRfc4122() . '/users/' . $userId,
+            server: ['HTTP_AUTHORIZATION' => 'Bearer ' . $token]
+        );
+        $this->assertResponseStatusCodeSame(200);
+
+        $filters = $this->entityManager->getFilters();
+        $filters->disable('soft_delete');
+        $this->entityManager->clear();
+        $deleted = $this->entityManager->find(User::class, $userId);
+
+        $this->assertNotNull($deleted);
+        $this->assertNull($deleted->getInvitationTokenHash());
+        $this->assertNull($deleted->getInvitationExpiresAt());
+        $this->assertSame('*', $deleted->getPassword());
+        $this->assertFalse($deleted->isActive());
+        $this->assertNotNull($deleted->getDeletedAt());
+        $filters->enable('soft_delete');
+    }
+
+    public function testDuplicateActiveEmailStillRejected(): void
+    {
+        $superAdmin = $this->createSuperAdmin();
+        $token = $this->getJwtToken($superAdmin);
+
+        $garage = $this->createGarage('dup_active');
+        $user = $this->createGarageUser($garage, 'ROLE_MECHANIC');
+
+        $this->client->request(
+            'POST',
+            '/api/admin/garages/' . $garage->getId()->toRfc4122() . '/users',
+            server: [
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+                'CONTENT_TYPE' => 'application/json',
+            ],
+            content: json_encode([
+                'email' => $user->getEmail(),
+                'fullName' => 'Another Person',
+                'password' => 'SecurePass123!',
+                'role' => 'mechanic',
+            ])
+        );
+
+        $this->assertResponseStatusCodeSame(409);
     }
 
     public function testDeleteGarageUserFailsIfUserBelongsToDifferentGarage(): void

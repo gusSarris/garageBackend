@@ -2,6 +2,7 @@
 
 namespace App\Repository;
 
+use App\Entity\Garage;
 use App\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -40,28 +41,35 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
         return (int) $conn->fetchOne("SELECT COUNT(*) FROM app_user WHERE roles::text LIKE '%\"ROLE_SUPER_ADMIN\"%'");
     }
 
-//    /**
-//     * @return User[] Returns an array of User objects
-//     */
-//    public function findByExampleField($value): array
-//    {
-//        return $this->createQueryBuilder('u')
-//            ->andWhere('u.exampleField = :val')
-//            ->setParameter('val', $value)
-//            ->orderBy('u.id', 'ASC')
-//            ->setMaxResults(10)
-//            ->getQuery()
-//            ->getResult()
-//        ;
-//    }
+    /**
+     * @return User[]
+     */
+    public function findByGarage(Garage $garage, bool $includeDeleted = false): array
+    {
+        $filters = $this->getEntityManager()->getFilters();
+        if ($includeDeleted && $filters->isEnabled('soft_delete')) {
+            $filters->disable('soft_delete');
+        }
 
-//    public function findOneBySomeField($value): ?User
-//    {
-//        return $this->createQueryBuilder('u')
-//            ->andWhere('u.exampleField = :val')
-//            ->setParameter('val', $value)
-//            ->getQuery()
-//            ->getOneOrNullResult()
-//        ;
-//    }
+        try {
+            return $this->findBy(['garage' => $garage], ['createdAt' => 'ASC']);
+        } finally {
+            if ($includeDeleted && !$filters->isEnabled('soft_delete')) {
+                $filters->enable('soft_delete');
+            }
+        }
+    }
+
+    public function countActiveAdminsByGarage(Garage $garage): int
+    {
+        $users = $this->findBy(['garage' => $garage, 'isActive' => true]);
+        $count = 0;
+        foreach ($users as $user) {
+            if (in_array('ROLE_GARAGE_ADMIN', $user->getRoles(), true)) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
 }

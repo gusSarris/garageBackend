@@ -10,6 +10,17 @@
 ## Notes
 
 ## History
+- **soft-delete-users** (Completed: 2026-09-21):
+  - Created marker interface `App\Doctrine\Contract\SoftDeletableInterface`.
+  - Added `deletedAt` (`?\DateTimeImmutable`) column and `isDeleted()` helper to `App\Entity\User`.
+  - Replaced strict `UNIQUE(email)` with PostgreSQL partial unique constraint `#[ORM\UniqueConstraint(name: 'uniq_user_email_active', columns: ['email'], options: ['where' => '(deleted_at IS NULL)'])]` on `User` entity and executed migration `Version20260921153146`.
+  - Implemented `App\Doctrine\Filter\SoftDeleteFilter` dynamically resolving `$targetEntity->getColumnName('deletedAt')` to filter out soft-deleted entities with `deleted_at IS NULL`; registered and enabled by default in `config/packages/doctrine.yaml`.
+  - Added `findByGarage(Garage $garage, bool $includeDeleted = false)` with `try / finally` filter handling to `UserRepository` to prevent filter leakage.
+  - Registered `App\Security\UserChecker` on both `login` and `api` firewalls in `security.yaml`, enforcing `isDeleted()` and `isActive()` across both `checkPreAuth` and `checkPostAuth` to reject existing JWT tokens immediately upon user deletion.
+  - Updated `DELETE /api/admin/garages/{garageId}/users/{userId}` to soft-delete users (`deletedAt = now()`, `isActive = false`), clear pending invitation tokens/expiry, invalidate password hash (`*`), return 404 if already soft-deleted, and guard against deleting the last active `ROLE_GARAGE_ADMIN` in a garage with 409 Conflict.
+  - Updated `GET /api/admin/garages/{garageId}/users` to support `?include_deleted=true` and output `deletedAt` ISO timestamp.
+  - Updated `tests/Admin/GarageUserManagementTest.php` with soft-delete assertions and added tests for last owner guard, duplicate delete 404, credential wipe, and active duplicate email rejection.
+  - Implemented `tests/UserSoftDeleteTest.php` covering login rejection, existing JWT token invalidation, audit listing, email reuse, and onboarding with soft-deleted email. All 83 tests and 670 assertions passing across full test suite.
 - **garage-invitation-onboarding** (Completed: 2026-09-21):
   - Enforced CLI-only creation of Platform Super Admins via `App\Command\CreateSuperAdminCommand` (`app:create-super-admin`) with interactive password prompts (`askHidden`), guardrails against duplicates (`UserRepository::countSuperAdmins`), and required `--force` flag.
   - Added `invitationTokenHash` (SHA-256 hex, 64 chars, unique index) and `invitationExpiresAt` fields to `App\Entity\User` with database migration `Version20260921135042`.

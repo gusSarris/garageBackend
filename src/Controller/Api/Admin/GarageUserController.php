@@ -10,6 +10,7 @@ use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -36,14 +37,15 @@ final class GarageUserController extends AbstractController
     }
 
     #[Route('', name: 'list', methods: ['GET'])]
-    public function list(string $garageId): JsonResponse
+    public function list(string $garageId, Request $request): JsonResponse
     {
         $garage = $this->resolveGarage($garageId);
         if (!$garage instanceof Garage) {
             return $this->json(['error' => 'Garage not found'], Response::HTTP_NOT_FOUND);
         }
 
-        $users = $this->userRepository->findBy(['garage' => $garage], ['createdAt' => 'ASC']);
+        $includeDeleted = $request->query->getBoolean('include_deleted');
+        $users = $this->userRepository->findByGarage($garage, $includeDeleted);
 
         $data = array_map(function (User $user): array {
             return [
@@ -53,6 +55,7 @@ final class GarageUserController extends AbstractController
                 'roles' => $user->getRoles(),
                 'isActive' => $user->isActive(),
                 'createdAt' => $user->getCreatedAt()?->format(\DateTimeInterface::ATOM),
+                'deletedAt' => $user->getDeletedAt()?->format(\DateTimeInterface::ATOM),
             ];
         }, $users);
 
@@ -113,7 +116,7 @@ final class GarageUserController extends AbstractController
         }
 
         $user = $this->resolveUser($userId);
-        if (!$user instanceof User) {
+        if (!$user instanceof User || $user->isDeleted()) {
             return $this->json(['error' => 'User not found'], Response::HTTP_NOT_FOUND);
         }
 
@@ -128,7 +131,24 @@ final class GarageUserController extends AbstractController
             return $this->json(['error' => 'Cannot delete the currently authenticated user'], Response::HTTP_BAD_REQUEST);
         }
 
-        $this->entityManager->remove($user);
+        // Last owner guard
+        if (in_array('ROLE_GARAGE_ADMIN', $user->getRoles(), true)) {
+            $activeAdminsCount = $this->userRepository->countActiveAdminsByGarage($garage);
+            if ($activeAdminsCount <= 1) {
+                return $this->json(
+                    ['error' => 'Cannot delete the last active administrator of a garage'],
+                    Response::HTTP_CONFLICT
+                );
+            }
+        }
+
+        // Soft delete and clean up sensitive credentials
+        $user->setDeletedAt(new \DateTimeImmutable());
+        $user->setIsActive(false);
+        $user->setInvitationTokenHash(null);
+        $user->setInvitationExpiresAt(null);
+        $user->setPassword('*');
+
         $this->entityManager->flush();
 
         return $this->json(['message' => 'User successfully deleted'], Response::HTTP_OK);
