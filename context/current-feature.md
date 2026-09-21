@@ -3,13 +3,22 @@
 - **Feature Name**: none
 - **Branch**: main
 - **Status**: idle
-- **Specification**: 
+- **Specification**: none
 
 ## Goals
+None
 
 ## Notes
+None
 
 ## History
+- **garage-work-orders-api** (Completed: 2026-09-21):
+  - Implemented DTOs: `CreateWorkOrderRequest` and `UpdateWorkOrderRequest` with validations for UUIDs, description, lifecycle status, date formats, price regex, odometer values, and ISO-8601 timestamps.
+  - Implemented `searchByGarage` query helper in `WorkOrderRepository` with eager customer and vehicle joins, filtering by status, customer, vehicle, date, date range, and case-insensitive query substring matching.
+  - Implemented `App\Controller\Api\Garage\WorkOrderController` with CRUD endpoints (`GET /api/garage/work-orders`, `POST /api/garage/work-orders`, `GET /api/garage/work-orders/{id}`, `PATCH /api/garage/work-orders/{id}`, `DELETE /api/garage/work-orders/{id}`).
+  - Implemented repair lifecycle transitions (`checked_in`, `in_progress`, `completed`, `delivered`, `cancelled`), auto-populating timestamps (`checkedInAt`, `completedAt`, `pickedUpAt`) and updating vehicle service history (`lastServiceDate`, `lastServiceMileage`, odometer updates).
+  - Enforced strict tenant isolation via `$user->getGarage()`, returning 400 Bad Request for super admin without garage, and 404 Not Found for cross-tenant entities. Protected with `#[IsGranted('ROLE_MECHANIC')]`.
+  - Configured `memory_limit` in `phpunit.dist.xml` and implemented comprehensive functional test suite in `tests/Garage/WorkOrderManagementTest.php` (13 tests, 75 assertions). Full test suite passing (123 tests, 911 assertions).
 - **garage-customers-vehicles-api** (Completed: 2026-09-21):
   - Implemented DTOs: `CreateCustomerRequest`, `UpdateCustomerRequest`, `CreateVehicleRequest`, `UpdateVehicleRequest` with validations for contact information, UUIDs, mechanical specifications, and `Y-m-d` date formats.
   - Implemented `searchByGarage` query helpers in `CustomerRepository` (case-insensitive substring search on phone, name, company, email) and `VehicleRepository` (case-insensitive search on plate, VIN, make, model, filtering by customer, and `upcoming_kteo` / `upcoming_service` deadline filters).
