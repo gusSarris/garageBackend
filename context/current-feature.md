@@ -12,6 +12,14 @@ None
 None
 
 ## History
+- **user-profile-api** (Completed: 2026-09-22):
+  - Implemented DTOs: `App\DTO\Auth\UpdateProfileRequest` (validating optional `fullName`, `email`) and `App\DTO\Auth\ChangePasswordRequest` (validating `currentPassword`, `newPassword` min 10 + NotCompromisedPassword).
+  - Updated `App\Controller\Api\AuthController` with endpoints:
+    - `PATCH /api/auth/me`: update personal profile details, handling duplicate email conflict with 409 Conflict, and returning updated user profile.
+    - `POST /api/auth/change-password`: verify current password via `UserPasswordHasherInterface::isPasswordValid()`, reject identical passwords with 422 Unprocessable Content, hash and save new credentials.
+  - Enforced strict identity security: operates strictly on `$this->getUser()` with zero privilege escalation risks (ignoring `roles`, `garage`, and `id` tampering).
+  - Implemented comprehensive functional test suite in `tests/Auth/UserProfileTest.php` (12 tests, 50 assertions). Full test suite passing (146 tests, 1035 assertions).
+
 - **tenant-status-listener** (Completed: 2026-09-21):
   - Implemented `App\EventListener\TenantStatusListener` on `KernelEvents::REQUEST` (priority 0) to intercept tenant requests (`^/api/garage`).
   - Enforced workshop active status (`garage.isActive`) and valid subscription states (`trial`, `active`), returning HTTP 403 Forbidden with structured JSON error payload (`WORKSHOP_INACTIVE_OR_EXPIRED`) on deactivated workshops or expired/cancelled/past_due/suspended subscriptions.
