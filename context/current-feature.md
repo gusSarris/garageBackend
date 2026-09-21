@@ -10,6 +10,15 @@
 ## Notes
 
 ## History
+- **staff-management** (Completed: 2026-09-21):
+  - Implemented `App\DTO\Garage\CreateStaffRequest` with strict validation (`email`, `fullName`, `password` min 10 + NotCompromisedPassword, case-normalized `role`).
+  - Implemented `App\Controller\Api\Garage\GarageStaffController` with endpoints:
+    - `GET /api/garage/users` (list staff for authenticated user's garage, supporting `?include_deleted=true`).
+    - `POST /api/garage/users` (provision `ROLE_MECHANIC` or `ROLE_GARAGE_ADMIN` bound to tenant, catching `UniqueConstraintViolationException` on race conditions).
+    - `DELETE /api/garage/users/{id}` (tenant-scoped lookup `findOneBy(['id' => $id, 'garage' => $garage])`, soft-delete with credential sanitization, self-deletion guard, admin-on-admin deletion rejection with 403, defense-in-depth last-admin guard with 409).
+  - Enforced strict tenant isolation via `$user->getGarage()`, returning 400 for super admin without garage, and 403 for mechanics.
+  - Added `countActiveAdminsByGarageExcluding(Garage $garage, User $excludedUser)` helper method to `UserRepository`.
+  - Implemented comprehensive functional test suite in `tests/Garage/GarageStaffManagementTest.php` (15 tests, 73 assertions). Full test suite passing (98 tests, 743 assertions).
 - **soft-delete-users** (Completed: 2026-09-21):
   - Created marker interface `App\Doctrine\Contract\SoftDeletableInterface`.
   - Added `deletedAt` (`?\DateTimeImmutable`) column and `isDeleted()` helper to `App\Entity\User`.
