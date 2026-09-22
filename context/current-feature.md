@@ -12,6 +12,12 @@ None
 None
 
 ## History
+- **display-db-data-on-login** (Completed: 2026-09-22):
+  - Verified and documented backend API contract for frontend dashboard data display (`GET /api/garage/work-orders`, `GET /api/auth/me`).
+  - Formatted and aligned data models for 9 seeded database repairs, 10 customers, and 10 vehicles associated with workshop tenant Sarris Auto Service (`sarr-c@hotmail.com`).
+  - Created feature specification in `context/features/display-db-data-on-login.md`.
+  - Verified all functional test suites (`WorkOrderManagementTest`, `CorsHeadersTest`) passing (18 tests, 87 assertions).
+
 - **enable-cors** (Completed: 2026-09-22):
   - Installed and registered `nelmio/cors-bundle` via Composer Flex inside Docker container.
   - Configured `CORS_ALLOW_ORIGIN='^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$'` in `.env` to support frontend SPA dev origins (Next.js, Vite, React).
