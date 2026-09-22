@@ -12,6 +12,12 @@ None
 None
 
 ## History
+- **enable-cors** (Completed: 2026-09-22):
+  - Installed and registered `nelmio/cors-bundle` via Composer Flex inside Docker container.
+  - Configured `CORS_ALLOW_ORIGIN='^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$'` in `.env` to support frontend SPA dev origins (Next.js, Vite, React).
+  - Configured `config/packages/nelmio_cors.yaml` with allowed HTTP methods (`GET, OPTIONS, POST, PUT, PATCH, DELETE`), standard headers (`Content-Type, Authorization, Accept, Origin, X-Requested-With`), exposed headers (`Link, Content-Disposition`), and path regex `^/`.
+  - Scaffolded and implemented functional test suite in `tests/Cors/CorsHeadersTest.php` (5 tests, 12 assertions) verifying preflight `OPTIONS` on public and protected endpoints, actual requests, authenticated requests, and disallowed origin rejection. Full test suite passing (151 tests, 1047 assertions).
+
 - **user-profile-api** (Completed: 2026-09-22):
   - Implemented DTOs: `App\DTO\Auth\UpdateProfileRequest` (validating optional `fullName`, `email`) and `App\DTO\Auth\ChangePasswordRequest` (validating `currentPassword`, `newPassword` min 10 + NotCompromisedPassword).
   - Updated `App\Controller\Api\AuthController` with endpoints:
