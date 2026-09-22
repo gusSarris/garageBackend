@@ -331,7 +331,7 @@ class SeedBasicAccountCommand
                 'mileage' => 31000,
             ],
             [
-                'plate' => 'AME-8901',
+                'plate' => 'ABC-8901',
                 'vin' => 'WDD1770841J000010',
                 'make' => 'Mercedes-Benz',
                 'model' => 'A 180',
