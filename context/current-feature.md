@@ -12,6 +12,14 @@ None
 None
 
 ## History
+- **update-repair-api** (Completed: 2026-09-22):
+  - Verified and documented backend API contract for updating repair work orders (`PATCH /api/garage/work-orders/{id}`).
+  - Enforced tenant isolation scoped to `$user->getGarage()` and `ROLE_MECHANIC` access control.
+  - Supported automatic lifecycle side effects (`checkedInAt`, `completedAt`, `pickedUpAt`, vehicle mileage and last service date).
+  - Documented feature specification in `context/features/update-repair-api.md`.
+  - Verified functional test suite (`WorkOrderManagementTest`) passing with 13 tests and 75 assertions (full test suite 152 tests, 1079 assertions).
+  - Paired with frontend feature branch `feature/update-repair-api`.
+
 - **display-db-data-on-login** (Completed: 2026-09-22):
   - Verified and documented backend API contract for frontend dashboard data display (`GET /api/garage/work-orders`, `GET /api/auth/me`).
   - Formatted and aligned data models for 9 seeded database repairs, 10 customers, and 10 vehicles associated with workshop tenant Sarris Auto Service (`sarr-c@hotmail.com`).
