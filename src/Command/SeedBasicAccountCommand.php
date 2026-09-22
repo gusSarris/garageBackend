@@ -340,12 +340,24 @@ class SeedBasicAccountCommand
                 'color' => 'Black',
                 'mileage' => 37000,
             ],
+            [
+                'plate' => 'ΙΚΑ-9920',
+                'vin' => 'JYARN000000000011',
+                'make' => 'Yamaha',
+                'model' => 'TMAX 560',
+                'year' => 2023,
+                'fuel' => 'petrol',
+                'color' => 'Black',
+                'mileage' => 12000,
+                'customerIndex' => 0,
+            ],
         ];
 
         /** @var Vehicle[] $vehicleEntities */
         $vehicleEntities = [];
         foreach ($vehiclesData as $index => $vData) {
-            $customer = $customerEntities[$index];
+            $customerIndex = $vData['customerIndex'] ?? $index;
+            $customer = $customerEntities[$customerIndex];
             $vehicle = $this->vehicleRepository->findOneBy([
                 'garage' => $garage,
                 'licensePlate' => $vData['plate'],
