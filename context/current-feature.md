@@ -12,6 +12,15 @@ None
 None
 
 ## History
+- **connect-lookup-with-backend** (Completed: 2026-09-22):
+  - Implemented `App\Controller\Api\Garage\LookupController` with authenticated endpoint `GET /api/garage/lookup`.
+  - Added smart lookup by phone (`?phone=...`) returning customer details and all associated registered vehicles.
+  - Added smart lookup by license plate (`?plate=...`) returning vehicle specifications and associated customer details.
+  - Handled flexible normalization (Greek country code `+30`, `0030`, whitespace, hyphens, and case-insensitivity).
+  - Enforced tenant isolation scoped to `$user->getGarage()` with `ROLE_MECHANIC` access control.
+  - Implemented comprehensive functional test suite in `tests/Garage/LookupApiTest.php` (8 tests, 41 assertions). Full backend test suite passing (160 tests, 1120 assertions).
+  - Paired with frontend feature branch `feature/connect-lookup-with-backend`.
+
 - **update-repair-api** (Completed: 2026-09-22):
   - Verified and documented backend API contract for updating repair work orders (`PATCH /api/garage/work-orders/{id}`).
   - Enforced tenant isolation scoped to `$user->getGarage()` and `ROLE_MECHANIC` access control.
