@@ -179,6 +179,7 @@ final class LookupController extends AbstractController
             'make' => $vehicle->getMake(),
             'model' => $vehicle->getModel(),
             'year' => $vehicle->getYear(),
+            'color' => $vehicle->getColor(),
         ];
     }
 }
