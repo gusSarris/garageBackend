@@ -241,7 +241,7 @@ class SeedBasicAccountCommand
         // 5. 10 Vehicles (one per customer)
         $vehiclesData = [
             [
-                'plate' => 'IHB-1234',
+                'plate' => 'ΙΗΒ-1234',
                 'vin' => 'VF3CCHMZ6KY000001',
                 'make' => 'Peugeot',
                 'model' => '208',
@@ -251,7 +251,7 @@ class SeedBasicAccountCommand
                 'mileage' => 54000,
             ],
             [
-                'plate' => 'ZTM-5678',
+                'plate' => 'ΖΤΜ-5678',
                 'vin' => 'WBA11AK05M7000002',
                 'make' => 'BMW',
                 'model' => '118i',
@@ -261,7 +261,7 @@ class SeedBasicAccountCommand
                 'mileage' => 42000,
             ],
             [
-                'plate' => 'NHK-9012',
+                'plate' => 'ΝΗΚ-9012',
                 'vin' => 'WVWZZZCDZLW000003',
                 'make' => 'Volkswagen',
                 'model' => 'Golf 8',
@@ -271,7 +271,7 @@ class SeedBasicAccountCommand
                 'mileage' => 68000,
             ],
             [
-                'plate' => 'YXI-3456',
+                'plate' => 'ΥΧΙ-3456',
                 'vin' => 'JMZDM6W7A00000004',
                 'make' => 'Mazda',
                 'model' => 'CX-30',
@@ -281,7 +281,7 @@ class SeedBasicAccountCommand
                 'mileage' => 28000,
             ],
             [
-                'plate' => 'IBO-7890',
+                'plate' => 'ΙΒΟ-7890',
                 'vin' => 'TMBJJ7NE7J0000005',
                 'make' => 'Skoda',
                 'model' => 'Octavia',
@@ -291,7 +291,7 @@ class SeedBasicAccountCommand
                 'mileage' => 115000,
             ],
             [
-                'plate' => 'KHM-2345',
+                'plate' => 'ΚΗΜ-2345',
                 'vin' => 'VF1RJA00564000006',
                 'make' => 'Renault',
                 'model' => 'Clio V',
@@ -301,7 +301,7 @@ class SeedBasicAccountCommand
                 'mileage' => 49000,
             ],
             [
-                'plate' => 'XNA-6789',
+                'plate' => 'ΧΝΑ-6789',
                 'vin' => 'JT1NB3FV50D000007',
                 'make' => 'Toyota',
                 'model' => 'Yaris Hybrid',
@@ -311,7 +311,7 @@ class SeedBasicAccountCommand
                 'mileage' => 18000,
             ],
             [
-                'plate' => 'EPT-0123',
+                'plate' => 'ΕΡΤ-0123',
                 'vin' => 'WAUZZZ8V7HA000008',
                 'make' => 'Audi',
                 'model' => 'A3 Sportback',
@@ -321,7 +321,7 @@ class SeedBasicAccountCommand
                 'mileage' => 132000,
             ],
             [
-                'plate' => 'BKP-4567',
+                'plate' => 'ΒΚΡ-4567',
                 'vin' => 'ZFA3120000J000009',
                 'make' => 'Fiat',
                 'model' => '500 Hybrid',

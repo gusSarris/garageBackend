@@ -142,8 +142,16 @@ final class LookupController extends AbstractController
     private function normalizePlate(string $plate): string
     {
         $clean = preg_replace('/[\s\-_]/u', '', trim($plate)) ?? '';
+        $upper = mb_strtoupper($clean);
 
-        return mb_strtoupper($clean);
+        $greekToLatin = [
+            'Α' => 'A', 'Β' => 'B', 'Ε' => 'E', 'Ζ' => 'Z',
+            'Η' => 'H', 'Ι' => 'I', 'Κ' => 'K', 'Μ' => 'M',
+            'Ν' => 'N', 'Ο' => 'O', 'Ρ' => 'P', 'Τ' => 'T',
+            'Υ' => 'Y', 'Χ' => 'X',
+        ];
+
+        return strtr($upper, $greekToLatin);
     }
 
     private function formatCustomer(Customer $customer): array
