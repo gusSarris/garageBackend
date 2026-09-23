@@ -2,7 +2,7 @@
 
 - **Feature Name**: none
 - **Branch**: main
-- **Status**: idle
+- **Status**: none
 - **Specification**: none
 
 ## Goals
@@ -14,6 +14,12 @@ None
 None
 
 ## History
+- **customer-permissions-and-delete-guardrails** (Completed: 2026-09-24):
+  - In `CustomerController::delete` (`DELETE /api/garage/customers/{id}`), restricted customer deletion strictly to `ROLE_GARAGE_ADMIN` via `#[IsGranted('ROLE_GARAGE_ADMIN')]`, rejecting mechanics with HTTP 403 Forbidden.
+  - Implemented delete guardrail in `CustomerController::delete` checking for existing repair orders (`WorkOrder`) via `WorkOrderRepository::count(['customer' => $customer, 'garage' => $garage])`. Returns HTTP 409 Conflict with code `CUSTOMER_HAS_WORK_ORDERS`, count, and descriptive error message if work orders exist.
+  - Retained customer update (`PATCH /api/garage/customers/{id}`) access for `ROLE_MECHANIC` and `ROLE_GARAGE_ADMIN`.
+  - Updated and expanded functional test suite in `tests/Garage/CustomerVehicleManagementTest.php` covering mechanic 403 rejection, admin 409 conflict when work orders exist, admin successful deletion without work orders, and cross-tenant isolation. Full test suite passing (186 tests, 1192 assertions).
+
 - **prevent-duplicate-active-vehicle-work-orders** (Completed: 2026-09-23):
   - In `WorkOrderController::create` (`POST /api/garage/work-orders`), added check for active work orders using `WorkOrderRepository::findActiveWorkOrderByVehicle` (`status NOT IN ('delivered', 'cancelled')` and `pickedUpAt IS NULL`), returning HTTP 409 Conflict with error code `VEHICLE_ALREADY_ACTIVE` and active work order payload.
   - Added PostgreSQL partial unique index `uniq_active_work_order_per_vehicle` to `work_order` (`WHERE status NOT IN ('delivered', 'cancelled') AND picked_up_at IS NULL`) and generated/applied migration `Version20260923180148`.

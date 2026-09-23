@@ -9,6 +9,7 @@ use App\Entity\Garage;
 use App\Entity\User;
 use App\Entity\Vehicle;
 use App\Repository\CustomerRepository;
+use App\Repository\WorkOrderRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -24,6 +25,7 @@ final class CustomerController extends AbstractController
 {
     public function __construct(
         private readonly CustomerRepository $customerRepository,
+        private readonly WorkOrderRepository $workOrderRepository,
         private readonly EntityManagerInterface $entityManager,
     ) {
     }
@@ -146,6 +148,7 @@ final class CustomerController extends AbstractController
     }
 
     #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
+    #[IsGranted('ROLE_GARAGE_ADMIN')]
     public function delete(string $id): JsonResponse
     {
         $garage = $this->resolveCurrentGarage();
@@ -156,6 +159,15 @@ final class CustomerController extends AbstractController
         $customer = $this->findCustomerScopedToGarage($id, $garage);
         if (!$customer instanceof Customer) {
             return $this->json(['error' => 'Customer not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $workOrderCount = $this->workOrderRepository->count(['customer' => $customer, 'garage' => $garage]);
+        if ($workOrderCount > 0) {
+            return $this->json([
+                'error' => 'Δεν είναι δυνατή η διαγραφή πελάτη με καταγεγραμμένο ιστορικό επισκευών.',
+                'code' => 'CUSTOMER_HAS_WORK_ORDERS',
+                'workOrderCount' => $workOrderCount,
+            ], Response::HTTP_CONFLICT);
         }
 
         $this->entityManager->remove($customer);

@@ -6,6 +6,7 @@ use App\Entity\Customer;
 use App\Entity\Garage;
 use App\Entity\User;
 use App\Entity\Vehicle;
+use App\Entity\WorkOrder;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -156,6 +157,24 @@ class CustomerVehicleManagementTest extends WebTestCase
         $this->entityManager->flush();
 
         return $vehicle;
+    }
+
+    private function createWorkOrder(Garage $garage, Customer $customer, Vehicle $vehicle, array $overrides = []): WorkOrder
+    {
+        $workOrder = new WorkOrder();
+        $workOrder->setGarage($garage);
+        $workOrder->setCustomer($customer);
+        $workOrder->setVehicle($vehicle);
+        $workOrder->setDescription($overrides['description'] ?? 'Standard maintenance and diagnostic');
+        $workOrder->setDate(new \DateTimeImmutable('today'));
+        $workOrder->setStatus($overrides['status'] ?? 'checked_in');
+        $workOrder->setScheduledTime($overrides['scheduledTime'] ?? '10:00');
+        $workOrder->setPrice($overrides['price'] ?? '100.00');
+
+        $this->entityManager->persist($workOrder);
+        $this->entityManager->flush();
+
+        return $workOrder;
     }
 
     public function testMechanicCanCreateAndListCustomer(): void
@@ -320,8 +339,10 @@ class CustomerVehicleManagementTest extends WebTestCase
     {
         $garage1 = $this->createGarage('t1_cust');
         $mechanic1 = $this->createGarageUser($garage1, 'ROLE_MECHANIC');
+        $admin1 = $this->createGarageUser($garage1, 'ROLE_GARAGE_ADMIN');
         $customer1 = $this->createCustomer($garage1);
         $token1 = $this->getJwtToken($mechanic1);
+        $adminToken1 = $this->getJwtToken($admin1);
 
         $garage2 = $this->createGarage('t2_cust');
         $customer2 = $this->createCustomer($garage2);
@@ -346,11 +367,11 @@ class CustomerVehicleManagementTest extends WebTestCase
         );
         $this->assertSame(404, $this->client->getResponse()->getStatusCode());
 
-        // Garage 1 DELETE customer from Garage 2 -> 404
+        // Garage 1 Admin DELETE customer from Garage 2 -> 404
         $this->client->request(
             'DELETE',
             '/api/garage/customers/' . $customer2->getId()->toRfc4122(),
-            server: ['HTTP_AUTHORIZATION' => 'Bearer ' . $token1]
+            server: ['HTTP_AUTHORIZATION' => 'Bearer ' . $adminToken1]
         );
         $this->assertSame(404, $this->client->getResponse()->getStatusCode());
 
@@ -603,15 +624,17 @@ class CustomerVehicleManagementTest extends WebTestCase
     {
         $garage = $this->createGarage('delete_test');
         $mechanic = $this->createGarageUser($garage, 'ROLE_MECHANIC');
+        $admin = $this->createGarageUser($garage, 'ROLE_GARAGE_ADMIN');
         $customer = $this->createCustomer($garage);
         $vehicle = $this->createVehicle($garage, $customer);
-        $token = $this->getJwtToken($mechanic);
+        $mechanicToken = $this->getJwtToken($mechanic);
+        $adminToken = $this->getJwtToken($admin);
 
-        // Delete vehicle
+        // Delete vehicle by mechanic
         $this->client->request(
             'DELETE',
             '/api/garage/vehicles/' . $vehicle->getId()->toRfc4122(),
-            server: ['HTTP_AUTHORIZATION' => 'Bearer ' . $token]
+            server: ['HTTP_AUTHORIZATION' => 'Bearer ' . $mechanicToken]
         );
         $this->assertSame(200, $this->client->getResponse()->getStatusCode());
         $data = json_decode($this->client->getResponse()->getContent(), true);
@@ -623,11 +646,23 @@ class CustomerVehicleManagementTest extends WebTestCase
         // Verify customer still exists
         $this->assertNotNull($this->entityManager->getRepository(Customer::class)->find($customer->getId()));
 
-        // Delete customer
+        // Delete customer by mechanic -> 403 Forbidden
         $this->client->request(
             'DELETE',
             '/api/garage/customers/' . $customer->getId()->toRfc4122(),
-            server: ['HTTP_AUTHORIZATION' => 'Bearer ' . $token]
+            server: ['HTTP_AUTHORIZATION' => 'Bearer ' . $mechanicToken]
+        );
+        $this->assertSame(403, $this->client->getResponse()->getStatusCode());
+
+        // Verify customer still exists in db
+        $this->entityManager->clear();
+        $this->assertNotNull($this->entityManager->getRepository(Customer::class)->find($customer->getId()));
+
+        // Delete customer by admin when zero work orders exist -> 200 OK
+        $this->client->request(
+            'DELETE',
+            '/api/garage/customers/' . $customer->getId()->toRfc4122(),
+            server: ['HTTP_AUTHORIZATION' => 'Bearer ' . $adminToken]
         );
         $this->assertSame(200, $this->client->getResponse()->getStatusCode());
         $custDelData = json_decode($this->client->getResponse()->getContent(), true);
@@ -636,6 +671,34 @@ class CustomerVehicleManagementTest extends WebTestCase
         // Verify customer gone from db
         $this->entityManager->clear();
         $this->assertNull($this->entityManager->getRepository(Customer::class)->find($customer->getId()));
+    }
+
+    public function testCannotDeleteCustomerWithWorkOrders(): void
+    {
+        $garage = $this->createGarage('cust_wo_del');
+        $admin = $this->createGarageUser($garage, 'ROLE_GARAGE_ADMIN');
+        $customer = $this->createCustomer($garage);
+        $vehicle = $this->createVehicle($garage, $customer);
+        $workOrder = $this->createWorkOrder($garage, $customer, $vehicle);
+        $adminToken = $this->getJwtToken($admin);
+
+        // Attempt deletion by admin
+        $this->client->request(
+            'DELETE',
+            '/api/garage/customers/' . $customer->getId()->toRfc4122(),
+            server: ['HTTP_AUTHORIZATION' => 'Bearer ' . $adminToken]
+        );
+
+        $this->assertSame(409, $this->client->getResponse()->getStatusCode());
+        $response = json_decode($this->client->getResponse()->getContent(), true);
+        $this->assertSame('CUSTOMER_HAS_WORK_ORDERS', $response['code']);
+        $this->assertSame(1, $response['workOrderCount']);
+        $this->assertStringContainsString('ιστορικό επισκευών', $response['error']);
+
+        // Verify customer and work order still exist in DB
+        $this->entityManager->clear();
+        $this->assertNotNull($this->entityManager->getRepository(Customer::class)->find($customer->getId()));
+        $this->assertNotNull($this->entityManager->getRepository(WorkOrder::class)->find($workOrder->getId()));
     }
 
     public function testSuperAdminWithoutGarageReturnsBadRequest(): void
