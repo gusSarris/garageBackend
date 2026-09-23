@@ -12,6 +12,15 @@ None
 None
 
 ## History
+- **guard-all-routes** (Completed: 2026-09-23):
+  - Created comprehensive functional security test suite in `tests/RouteProtectionTest.php` (20 tests, 24 assertions).
+  - Verified and asserted that all protected API endpoints (`/api/auth/me`, `/api/auth/change-password`, `/api/garage`, `/api/garage/lookup`, `/api/garage/work-orders`, `/api/garage/vehicles`, `/api/garage/customers`, `/api/garage/users`, `/api/admin/garages`) reject unauthenticated requests with HTTP 401 Unauthorized.
+  - Enforced RBAC authorization ensuring `ROLE_MECHANIC` is forbidden (HTTP 403) from platform admin endpoints and garage user management endpoints.
+  - Verified public access remains intact for login check (`/api/login_check`) and invitation verification (`/api/auth/invitation/{token}`).
+  - Verified non-existent routes (`/queue`, `/dashboard`) return 404 Not Found cleanly without data leakage.
+  - Documented feature specification in `context/features/guard-all-routes.md`.
+  - Paired with frontend feature branch `feature/guard-all-routes`.
+
 - **connect-lookup-with-backend** (Completed: 2026-09-22):
   - Implemented `App\Controller\Api\Garage\LookupController` with authenticated endpoint `GET /api/garage/lookup`.
   - Added smart lookup by phone (`?phone=...`) returning customer details and all associated registered vehicles.
