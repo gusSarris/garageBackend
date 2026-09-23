@@ -6,12 +6,21 @@
 - **Specification**: none
 
 ## Goals
+
 None
 
 ## Notes
+
 None
 
 ## History
+- **prevent-duplicate-active-vehicle-work-orders** (Completed: 2026-09-23):
+  - In `WorkOrderController::create` (`POST /api/garage/work-orders`), added check for active work orders using `WorkOrderRepository::findActiveWorkOrderByVehicle` (`status NOT IN ('delivered', 'cancelled')` and `pickedUpAt IS NULL`), returning HTTP 409 Conflict with error code `VEHICLE_ALREADY_ACTIVE` and active work order payload.
+  - Added PostgreSQL partial unique index `uniq_active_work_order_per_vehicle` to `work_order` (`WHERE status NOT IN ('delivered', 'cancelled') AND picked_up_at IS NULL`) and generated/applied migration `Version20260923180148`.
+  - In `LookupController::lookup` (`GET /api/garage/lookup`), enriched vehicle format with `hasActiveWorkOrder` and `activeWorkOrder` details.
+  - Implemented comprehensive functional tests in `tests/Garage/WorkOrderManagementTest.php` and `tests/Garage/LookupApiTest.php` covering active conflict rejection, scheduled appointment rejection, re-entry allowance after delivered/cancelled, and database race conditions. Full test suite passing (185 tests, 1181 assertions).
+  - Paired with frontend feature branch `feature/connect-new-client-with-backend`.
+
 - **guard-all-routes** (Completed: 2026-09-23):
   - Created comprehensive functional security test suite in `tests/RouteProtectionTest.php` (20 tests, 24 assertions).
   - Verified and asserted that all protected API endpoints (`/api/auth/me`, `/api/auth/change-password`, `/api/garage`, `/api/garage/lookup`, `/api/garage/work-orders`, `/api/garage/vehicles`, `/api/garage/customers`, `/api/garage/users`, `/api/admin/garages`) reject unauthenticated requests with HTTP 401 Unauthorized.

@@ -6,8 +6,10 @@ use App\Entity\Customer;
 use App\Entity\Garage;
 use App\Entity\User;
 use App\Entity\Vehicle;
+use App\Entity\WorkOrder;
 use App\Repository\CustomerRepository;
 use App\Repository\VehicleRepository;
+use App\Repository\WorkOrderRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -22,6 +24,7 @@ final class LookupController extends AbstractController
     public function __construct(
         private readonly CustomerRepository $customerRepository,
         private readonly VehicleRepository $vehicleRepository,
+        private readonly WorkOrderRepository $workOrderRepository,
     ) {
     }
 
@@ -50,7 +53,7 @@ final class LookupController extends AbstractController
             if ($customer instanceof Customer) {
                 $vehicles = [];
                 foreach ($customer->getVehicles() as $vehicle) {
-                    $vehicles[] = $this->formatVehicle($vehicle);
+                    $vehicles[] = $this->formatVehicle($vehicle, $garage);
                 }
 
                 $result['customer'] = $this->formatCustomer($customer);
@@ -64,7 +67,7 @@ final class LookupController extends AbstractController
         if ($plate !== null && trim($plate) !== '') {
             $vehicle = $this->findVehicleByPlate($garage, trim($plate));
             if ($vehicle instanceof Vehicle) {
-                $result['vehicle'] = $this->formatVehicle($vehicle);
+                $result['vehicle'] = $this->formatVehicle($vehicle, $garage);
                 $result['customer'] = $vehicle->getCustomer() instanceof Customer
                     ? $this->formatCustomer($vehicle->getCustomer())
                     : null;
@@ -171,8 +174,10 @@ final class LookupController extends AbstractController
         ];
     }
 
-    private function formatVehicle(Vehicle $vehicle): array
+    private function formatVehicle(Vehicle $vehicle, Garage $garage): array
     {
+        $activeWorkOrder = $this->workOrderRepository->findActiveWorkOrderByVehicle($garage, $vehicle);
+
         return [
             'id' => $vehicle->getId()?->toRfc4122(),
             'licensePlate' => $vehicle->getLicensePlate(),
@@ -180,6 +185,13 @@ final class LookupController extends AbstractController
             'model' => $vehicle->getModel(),
             'year' => $vehicle->getYear(),
             'color' => $vehicle->getColor(),
+            'hasActiveWorkOrder' => $activeWorkOrder !== null,
+            'activeWorkOrder' => $activeWorkOrder instanceof WorkOrder ? [
+                'id' => $activeWorkOrder->getId()?->toRfc4122(),
+                'status' => $activeWorkOrder->getStatus(),
+                'description' => $activeWorkOrder->getDescription(),
+                'date' => $activeWorkOrder->getDate()?->format('Y-m-d'),
+            ] : null,
         ];
     }
 }

@@ -266,9 +266,10 @@ class WorkOrderManagementTest extends WebTestCase
         $garageA = $this->createGarage('wo_list_a');
         $mechanicA = $this->createGarageUser($garageA, 'ROLE_MECHANIC');
         $customerA = $this->createCustomer($garageA);
-        $vehicleA = $this->createVehicle($garageA, $customerA);
-        $woA1 = $this->createWorkOrder($garageA, $customerA, $vehicleA, ['description' => 'Garage A Job 1']);
-        $woA2 = $this->createWorkOrder($garageA, $customerA, $vehicleA, ['description' => 'Garage A Job 2']);
+        $vehicleA1 = $this->createVehicle($garageA, $customerA);
+        $vehicleA2 = $this->createVehicle($garageA, $customerA);
+        $woA1 = $this->createWorkOrder($garageA, $customerA, $vehicleA1, ['description' => 'Garage A Job 1']);
+        $woA2 = $this->createWorkOrder($garageA, $customerA, $vehicleA2, ['description' => 'Garage A Job 2']);
 
         $garageB = $this->createGarage('wo_list_b');
         $customerB = $this->createCustomer($garageB);
@@ -299,11 +300,13 @@ class WorkOrderManagementTest extends WebTestCase
         $garage = $this->createGarage('wo_filter_status');
         $mechanic = $this->createGarageUser($garage, 'ROLE_MECHANIC');
         $customer = $this->createCustomer($garage);
-        $vehicle = $this->createVehicle($garage, $customer);
+        $vehicle1 = $this->createVehicle($garage, $customer);
+        $vehicle2 = $this->createVehicle($garage, $customer);
+        $vehicle3 = $this->createVehicle($garage, $customer);
 
-        $this->createWorkOrder($garage, $customer, $vehicle, ['status' => 'checked_in', 'description' => 'Check in task']);
-        $woInProgress = $this->createWorkOrder($garage, $customer, $vehicle, ['status' => 'in_progress', 'description' => 'Active repair']);
-        $this->createWorkOrder($garage, $customer, $vehicle, ['status' => 'completed', 'description' => 'Done task']);
+        $this->createWorkOrder($garage, $customer, $vehicle1, ['status' => 'checked_in', 'description' => 'Check in task']);
+        $woInProgress = $this->createWorkOrder($garage, $customer, $vehicle2, ['status' => 'in_progress', 'description' => 'Active repair']);
+        $this->createWorkOrder($garage, $customer, $vehicle3, ['status' => 'completed', 'description' => 'Done task']);
 
         $token = $this->getJwtToken($mechanic);
 
@@ -683,5 +686,187 @@ class WorkOrderManagementTest extends WebTestCase
         );
 
         $this->assertSame(422, $this->client->getResponse()->getStatusCode());
+    }
+
+    public function testCreateWorkOrderRejectsDuplicateActiveVehicleWithConflict409(): void
+    {
+        $garage = $this->createGarage('wo_dup_reject');
+        $mechanic = $this->createGarageUser($garage, 'ROLE_MECHANIC');
+        $customer = $this->createCustomer($garage);
+        $vehicle = $this->createVehicle($garage, $customer);
+        $token = $this->getJwtToken($mechanic);
+
+        // 1. Create initial active work order
+        $this->client->request(
+            'POST',
+            '/api/garage/work-orders',
+            server: [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+            ],
+            content: json_encode([
+                'vehicleId' => $vehicle->getId()->toRfc4122(),
+                'description' => 'Initial active repair',
+                'status' => 'checked_in',
+            ])
+        );
+
+        $res1 = $this->client->getResponse();
+        $this->assertSame(201, $res1->getStatusCode());
+        $data1 = json_decode($res1->getContent(), true);
+        $initialWorkOrderId = $data1['id'];
+
+        // 2. Attempt duplicate work order for same vehicle
+        $this->client->request(
+            'POST',
+            '/api/garage/work-orders',
+            server: [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+            ],
+            content: json_encode([
+                'vehicleId' => $vehicle->getId()->toRfc4122(),
+                'description' => 'Second repair attempt while first is active',
+                'status' => 'checked_in',
+            ])
+        );
+
+        $res2 = $this->client->getResponse();
+        $this->assertSame(409, $res2->getStatusCode(), 'Expected 409 Conflict for duplicate active vehicle work order');
+        $data2 = json_decode($res2->getContent(), true);
+
+        $this->assertSame('VEHICLE_ALREADY_ACTIVE', $data2['code']);
+        $this->assertStringContainsString('Το όχημα βρίσκεται ήδη στο συνεργείο', $data2['error']);
+        $this->assertNotNull($data2['activeWorkOrder']);
+        $this->assertSame($initialWorkOrderId, $data2['activeWorkOrder']['id']);
+        $this->assertSame('checked_in', $data2['activeWorkOrder']['status']);
+        $this->assertSame('Initial active repair', $data2['activeWorkOrder']['description']);
+    }
+
+    public function testCreateWorkOrderRejectsWhenVehicleHasScheduledAppointment(): void
+    {
+        $garage = $this->createGarage('wo_sched_reject');
+        $mechanic = $this->createGarageUser($garage, 'ROLE_MECHANIC');
+        $customer = $this->createCustomer($garage);
+        $vehicle = $this->createVehicle($garage, $customer);
+        $token = $this->getJwtToken($mechanic);
+
+        // 1. Create scheduled appointment work order
+        $this->client->request(
+            'POST',
+            '/api/garage/work-orders',
+            server: [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+            ],
+            content: json_encode([
+                'vehicleId' => $vehicle->getId()->toRfc4122(),
+                'description' => 'Scheduled queue service',
+                'status' => 'scheduled',
+                'scheduledTime' => '11:00',
+            ])
+        );
+
+        $res1 = $this->client->getResponse();
+        $this->assertSame(201, $res1->getStatusCode());
+        $data1 = json_decode($res1->getContent(), true);
+        $scheduledId = $data1['id'];
+
+        // 2. Attempt another work order
+        $this->client->request(
+            'POST',
+            '/api/garage/work-orders',
+            server: [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+            ],
+            content: json_encode([
+                'vehicleId' => $vehicle->getId()->toRfc4122(),
+                'description' => 'Check in while already scheduled',
+                'status' => 'checked_in',
+            ])
+        );
+
+        $res2 = $this->client->getResponse();
+        $this->assertSame(409, $res2->getStatusCode());
+        $data2 = json_decode($res2->getContent(), true);
+
+        $this->assertSame('VEHICLE_ALREADY_ACTIVE', $data2['code']);
+        $this->assertSame($scheduledId, $data2['activeWorkOrder']['id']);
+        $this->assertSame('scheduled', $data2['activeWorkOrder']['status']);
+    }
+
+    public function testCreateWorkOrderAllowsAfterDeliveredOrCancelled(): void
+    {
+        $garage = $this->createGarage('wo_deliv_allow');
+        $mechanic = $this->createGarageUser($garage, 'ROLE_MECHANIC');
+        $customer = $this->createCustomer($garage);
+        $vehicle = $this->createVehicle($garage, $customer);
+        $token = $this->getJwtToken($mechanic);
+
+        // 1. Create delivered work order (vehicle already picked up and archived)
+        $this->client->request(
+            'POST',
+            '/api/garage/work-orders',
+            server: [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+            ],
+            content: json_encode([
+                'vehicleId' => $vehicle->getId()->toRfc4122(),
+                'description' => 'Past delivered work order',
+                'status' => 'delivered',
+            ])
+        );
+        $this->assertSame(201, $this->client->getResponse()->getStatusCode());
+
+        // 2. A new work order must be allowed
+        $this->client->request(
+            'POST',
+            '/api/garage/work-orders',
+            server: [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+            ],
+            content: json_encode([
+                'vehicleId' => $vehicle->getId()->toRfc4122(),
+                'description' => 'New visit after previous was delivered',
+                'status' => 'checked_in',
+            ])
+        );
+        $this->assertSame(201, $this->client->getResponse()->getStatusCode());
+
+        // 3. Mark the second work order as cancelled
+        $data2 = json_decode($this->client->getResponse()->getContent(), true);
+        $secondId = $data2['id'];
+
+        $this->client->request(
+            'PATCH',
+            '/api/garage/work-orders/' . $secondId,
+            server: [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+            ],
+            content: json_encode([
+                'status' => 'cancelled',
+            ])
+        );
+        $this->assertSame(200, $this->client->getResponse()->getStatusCode());
+
+        // 4. A third work order must be allowed after cancellation
+        $this->client->request(
+            'POST',
+            '/api/garage/work-orders',
+            server: [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+            ],
+            content: json_encode([
+                'vehicleId' => $vehicle->getId()->toRfc4122(),
+                'description' => 'New visit after previous was cancelled',
+                'status' => 'checked_in',
+            ])
+        );
+        $this->assertSame(201, $this->client->getResponse()->getStatusCode());
     }
 }

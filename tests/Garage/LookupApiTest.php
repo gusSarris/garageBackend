@@ -6,6 +6,7 @@ use App\Entity\Customer;
 use App\Entity\Garage;
 use App\Entity\User;
 use App\Entity\Vehicle;
+use App\Entity\WorkOrder;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -324,5 +325,122 @@ class LookupApiTest extends WebTestCase
 
         $data = json_decode($this->client->getResponse()->getContent(), true);
         $this->assertNull($data['vehicle'], 'Mechanic A must not see Vehicle B');
+    }
+
+    private function createWorkOrder(Garage $garage, Customer $customer, Vehicle $vehicle, array $overrides = []): WorkOrder
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $managedGarage = $em->find(Garage::class, $garage->getId());
+        $managedCustomer = $em->find(Customer::class, $customer->getId());
+        $managedVehicle = $em->find(Vehicle::class, $vehicle->getId());
+
+        $wo = new WorkOrder();
+        $wo->setGarage($managedGarage);
+        $wo->setCustomer($managedCustomer);
+        $wo->setVehicle($managedVehicle);
+        $wo->setDescription($overrides['description'] ?? 'Lookup test repair');
+        $wo->setDate($overrides['date'] ?? new \DateTimeImmutable('today'));
+        $wo->setStatus($overrides['status'] ?? 'checked_in');
+        $wo->setPrice($overrides['price'] ?? '50.00');
+
+        if (isset($overrides['pickedUpAt'])) {
+            $wo->setPickedUpAt($overrides['pickedUpAt']);
+        }
+
+        $em->persist($wo);
+        $em->flush();
+
+        return $wo;
+    }
+
+    public function testLookupByPhoneIndicatesActiveWorkOrder(): void
+    {
+        $garage = $this->createGarage('lookup_phone_active_wo');
+        $user = $this->createGarageUser($garage);
+        $token = $this->getJwtToken($user);
+
+        $customer = $this->createCustomer($garage, [
+            'firstName' => 'Αλέξανδρος',
+            'lastName' => 'Ιωάννου',
+            'phone' => '+306911112222',
+        ]);
+
+        $vehicle = $this->createVehicle($garage, $customer, [
+            'licensePlate' => 'ACT-1001',
+            'make' => 'Yamaha',
+            'model' => 'XMAX 300',
+        ]);
+
+        // 1. Initially no active work order
+        $this->client->request('GET', '/api/garage/lookup?phone=6911112222', server: [
+            'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+        ]);
+        $data = json_decode($this->client->getResponse()->getContent(), true);
+        $this->assertFalse($data['vehicles'][0]['hasActiveWorkOrder']);
+        $this->assertNull($data['vehicles'][0]['activeWorkOrder']);
+
+        // 2. Add an active work order
+        $wo = $this->createWorkOrder($garage, $customer, $vehicle, [
+            'status' => 'checked_in',
+            'description' => 'Oil & filters',
+        ]);
+
+        $this->client->request('GET', '/api/garage/lookup?phone=6911112222', server: [
+            'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+        ]);
+        $data = json_decode($this->client->getResponse()->getContent(), true);
+        $this->assertTrue($data['vehicles'][0]['hasActiveWorkOrder']);
+        $this->assertNotNull($data['vehicles'][0]['activeWorkOrder']);
+        $this->assertSame($wo->getId()->toRfc4122(), $data['vehicles'][0]['activeWorkOrder']['id']);
+        $this->assertSame('checked_in', $data['vehicles'][0]['activeWorkOrder']['status']);
+        $this->assertSame('Oil & filters', $data['vehicles'][0]['activeWorkOrder']['description']);
+
+        // 3. Mark work order as delivered
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $managedWo = $em->find(WorkOrder::class, $wo->getId());
+        $managedWo->setStatus('delivered');
+        $managedWo->setPickedUpAt(new \DateTimeImmutable());
+        $em->flush();
+
+        $this->client->request('GET', '/api/garage/lookup?phone=6911112222', server: [
+            'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+        ]);
+        $data = json_decode($this->client->getResponse()->getContent(), true);
+        $this->assertFalse($data['vehicles'][0]['hasActiveWorkOrder']);
+        $this->assertNull($data['vehicles'][0]['activeWorkOrder']);
+    }
+
+    public function testLookupByPlateIndicatesActiveWorkOrder(): void
+    {
+        $garage = $this->createGarage('lookup_plate_active_wo');
+        $user = $this->createGarageUser($garage);
+        $token = $this->getJwtToken($user);
+
+        $customer = $this->createCustomer($garage, [
+            'phone' => '+306933334444',
+        ]);
+
+        $vehicle = $this->createVehicle($garage, $customer, [
+            'licensePlate' => 'PLA-2002',
+            'make' => 'Honda',
+            'model' => 'CB500X',
+        ]);
+
+        $wo = $this->createWorkOrder($garage, $customer, $vehicle, [
+            'status' => 'in_progress',
+            'description' => 'Brake service',
+        ]);
+
+        $this->client->request('GET', '/api/garage/lookup?plate=pla2002', server: [
+            'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+        ]);
+        $data = json_decode($this->client->getResponse()->getContent(), true);
+
+        $this->assertNotNull($data['vehicle']);
+        $this->assertTrue($data['vehicle']['hasActiveWorkOrder']);
+        $this->assertNotNull($data['vehicle']['activeWorkOrder']);
+        $this->assertSame($wo->getId()->toRfc4122(), $data['vehicle']['activeWorkOrder']['id']);
+        $this->assertSame('in_progress', $data['vehicle']['activeWorkOrder']['status']);
+        $this->assertSame('Brake service', $data['vehicle']['activeWorkOrder']['description']);
     }
 }

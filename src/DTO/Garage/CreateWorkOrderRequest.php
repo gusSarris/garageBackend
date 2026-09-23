@@ -22,7 +22,7 @@ final readonly class CreateWorkOrderRequest
         public ?string $date = null,
 
         #[Assert\Choice(
-            choices: ['checked_in', 'in_progress', 'completed', 'delivered', 'cancelled'],
+            choices: ['scheduled', 'checked_in', 'in_progress', 'waiting_parts', 'waiting_customer', 'completed', 'delivered', 'cancelled'],
             message: 'The status {{ value }} is invalid.'
         )]
         public ?string $status = 'checked_in',

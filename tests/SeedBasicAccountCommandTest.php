@@ -73,9 +73,9 @@ class SeedBasicAccountCommandTest extends KernelTestCase
         $customers = $customerRepo->findBy(['garage' => $garage]);
         $this->assertCount(10, $customers);
 
-        // Verify 10 Vehicles (one per customer)
+        // Verify 11 Vehicles (10 customers, first customer Nikos has 2 vehicles)
         $vehicles = $vehicleRepo->findBy(['garage' => $garage]);
-        $this->assertCount(10, $vehicles);
+        $this->assertCount(11, $vehicles);
         $customerIdsWithVehicles = [];
         foreach ($vehicles as $vehicle) {
             $customerIdsWithVehicles[$vehicle->getCustomer()->getId()->toRfc4122()] = true;
@@ -101,7 +101,7 @@ class SeedBasicAccountCommandTest extends KernelTestCase
         $this->assertCount(10, $customersSecondRun);
 
         $vehiclesSecondRun = $vehicleRepo->findBy(['garage' => $garage]);
-        $this->assertCount(10, $vehiclesSecondRun);
+        $this->assertCount(11, $vehiclesSecondRun);
 
         $workOrdersSecondRun = $workOrderRepo->findBy(['garage' => $garage]);
         $this->assertCount(9, $workOrdersSecondRun);

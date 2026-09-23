@@ -12,6 +12,7 @@ use App\Entity\WorkOrder;
 use App\Repository\CustomerRepository;
 use App\Repository\VehicleRepository;
 use App\Repository\WorkOrderRepository;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -91,6 +92,23 @@ final class WorkOrderController extends AbstractController
             return $this->json(['error' => 'Customer not found'], Response::HTTP_NOT_FOUND);
         }
 
+        // Prevent duplicate active work orders for the same vehicle
+        $activeWorkOrder = $this->workOrderRepository->findActiveWorkOrderByVehicle($garage, $vehicle);
+        if ($activeWorkOrder instanceof WorkOrder) {
+            return $this->json([
+                'error' => 'Το όχημα βρίσκεται ήδη στο συνεργείο ή στην ουρά αναμονής με ενεργή εργασία.',
+                'code' => 'VEHICLE_ALREADY_ACTIVE',
+                'activeWorkOrder' => [
+                    'id' => $activeWorkOrder->getId()?->toRfc4122(),
+                    'status' => $activeWorkOrder->getStatus(),
+                    'description' => $activeWorkOrder->getDescription(),
+                    'date' => $activeWorkOrder->getDate()?->format('Y-m-d'),
+                    'scheduledTime' => $activeWorkOrder->getScheduledTime(),
+                    'checkedInAt' => $activeWorkOrder->getCheckedInAt()?->format(\DateTimeInterface::ATOM),
+                ],
+            ], Response::HTTP_CONFLICT);
+        }
+
         $workOrder = new WorkOrder();
         $workOrder->setGarage($garage);
         $workOrder->setVehicle($vehicle);
@@ -130,8 +148,25 @@ final class WorkOrderController extends AbstractController
             }
         }
 
-        $this->entityManager->persist($workOrder);
-        $this->entityManager->flush();
+        try {
+            $this->entityManager->persist($workOrder);
+            $this->entityManager->flush();
+        } catch (UniqueConstraintViolationException) {
+            $existingActive = $this->workOrderRepository->findActiveWorkOrderByVehicle($garage, $vehicle);
+
+            return $this->json([
+                'error' => 'Το όχημα βρίσκεται ήδη στο συνεργείο ή στην ουρά αναμονής με ενεργή εργασία.',
+                'code' => 'VEHICLE_ALREADY_ACTIVE',
+                'activeWorkOrder' => $existingActive instanceof WorkOrder ? [
+                    'id' => $existingActive->getId()?->toRfc4122(),
+                    'status' => $existingActive->getStatus(),
+                    'description' => $existingActive->getDescription(),
+                    'date' => $existingActive->getDate()?->format('Y-m-d'),
+                    'scheduledTime' => $existingActive->getScheduledTime(),
+                    'checkedInAt' => $existingActive->getCheckedInAt()?->format(\DateTimeInterface::ATOM),
+                ] : null,
+            ], Response::HTTP_CONFLICT);
+        }
 
         return $this->json($this->formatWorkOrderDetail($workOrder), Response::HTTP_CREATED);
     }

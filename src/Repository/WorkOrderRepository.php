@@ -3,6 +3,7 @@
 namespace App\Repository;
 
 use App\Entity\Garage;
+use App\Entity\Vehicle;
 use App\Entity\WorkOrder;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -108,5 +109,24 @@ class WorkOrderRepository extends ServiceEntityRepository
             ->addOrderBy('w.createdAt', 'DESC');
 
         return $qb->getQuery()->getResult();
+    }
+
+    public function findActiveWorkOrderByVehicle(Garage $garage, Vehicle $vehicle): ?WorkOrder
+    {
+        return $this->createQueryBuilder('w')
+            ->andWhere('w.garage = :garage')
+            ->andWhere('w.vehicle = :vehicle')
+            ->andWhere("w.status NOT IN ('delivered', 'cancelled')")
+            ->andWhere('w.pickedUpAt IS NULL')
+            ->setParameter('garage', $garage)
+            ->setParameter('vehicle', $vehicle)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    public function hasActiveWorkOrder(Garage $garage, Vehicle $vehicle): bool
+    {
+        return $this->findActiveWorkOrderByVehicle($garage, $vehicle) !== null;
     }
 }

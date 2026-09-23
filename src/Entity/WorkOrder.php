@@ -11,6 +11,12 @@ use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: WorkOrderRepository::class)]
+#[ORM\Table(name: 'work_order')]
+#[ORM\UniqueConstraint(
+    name: 'uniq_active_work_order_per_vehicle',
+    columns: ['garage_id', 'vehicle_id'],
+    options: ['where' => "(status NOT IN ('delivered', 'cancelled') AND picked_up_at IS NULL)"],
+)]
 #[ORM\Index(name: 'idx_work_order_garage_status', columns: ['garage_id', 'status'])]
 #[ORM\Index(name: 'idx_work_order_vehicle_date', columns: ['vehicle_id', 'date'])]
 #[ORM\Index(name: 'idx_work_order_customer_date', columns: ['customer_id', 'date'])]
