@@ -392,9 +392,11 @@ class CustomerVehicleManagementTest extends WebTestCase
     {
         $garage1 = $this->createGarage('t1_veh');
         $mechanic1 = $this->createGarageUser($garage1, 'ROLE_MECHANIC');
+        $admin1 = $this->createGarageUser($garage1, 'ROLE_GARAGE_ADMIN');
         $customer1 = $this->createCustomer($garage1);
         $vehicle1 = $this->createVehicle($garage1, $customer1);
         $token1 = $this->getJwtToken($mechanic1);
+        $adminToken1 = $this->getJwtToken($admin1);
 
         $garage2 = $this->createGarage('t2_veh');
         $customer2 = $this->createCustomer($garage2);
@@ -420,11 +422,11 @@ class CustomerVehicleManagementTest extends WebTestCase
         );
         $this->assertSame(404, $this->client->getResponse()->getStatusCode());
 
-        // Garage 1 DELETE vehicle from Garage 2 -> 404
+        // Garage 1 Admin DELETE vehicle from Garage 2 -> 404
         $this->client->request(
             'DELETE',
             '/api/garage/vehicles/' . $vehicle2->getId()->toRfc4122(),
-            server: ['HTTP_AUTHORIZATION' => 'Bearer ' . $token1]
+            server: ['HTTP_AUTHORIZATION' => 'Bearer ' . $adminToken1]
         );
         $this->assertSame(404, $this->client->getResponse()->getStatusCode());
 
@@ -630,11 +632,23 @@ class CustomerVehicleManagementTest extends WebTestCase
         $mechanicToken = $this->getJwtToken($mechanic);
         $adminToken = $this->getJwtToken($admin);
 
-        // Delete vehicle by mechanic
+        // Delete vehicle by mechanic -> 403 Forbidden
         $this->client->request(
             'DELETE',
             '/api/garage/vehicles/' . $vehicle->getId()->toRfc4122(),
             server: ['HTTP_AUTHORIZATION' => 'Bearer ' . $mechanicToken]
+        );
+        $this->assertSame(403, $this->client->getResponse()->getStatusCode());
+
+        // Verify vehicle still exists in db
+        $this->entityManager->clear();
+        $this->assertNotNull($this->entityManager->getRepository(Vehicle::class)->find($vehicle->getId()));
+
+        // Delete vehicle by admin (zero work orders exist) -> 200 OK
+        $this->client->request(
+            'DELETE',
+            '/api/garage/vehicles/' . $vehicle->getId()->toRfc4122(),
+            server: ['HTTP_AUTHORIZATION' => 'Bearer ' . $adminToken]
         );
         $this->assertSame(200, $this->client->getResponse()->getStatusCode());
         $data = json_decode($this->client->getResponse()->getContent(), true);
@@ -671,6 +685,34 @@ class CustomerVehicleManagementTest extends WebTestCase
         // Verify customer gone from db
         $this->entityManager->clear();
         $this->assertNull($this->entityManager->getRepository(Customer::class)->find($customer->getId()));
+    }
+
+    public function testCannotDeleteVehicleWithWorkOrders(): void
+    {
+        $garage = $this->createGarage('veh_wo_del');
+        $admin = $this->createGarageUser($garage, 'ROLE_GARAGE_ADMIN');
+        $customer = $this->createCustomer($garage);
+        $vehicle = $this->createVehicle($garage, $customer);
+        $workOrder = $this->createWorkOrder($garage, $customer, $vehicle);
+        $adminToken = $this->getJwtToken($admin);
+
+        // Attempt deletion by admin
+        $this->client->request(
+            'DELETE',
+            '/api/garage/vehicles/' . $vehicle->getId()->toRfc4122(),
+            server: ['HTTP_AUTHORIZATION' => 'Bearer ' . $adminToken]
+        );
+
+        $this->assertSame(409, $this->client->getResponse()->getStatusCode());
+        $response = json_decode($this->client->getResponse()->getContent(), true);
+        $this->assertSame('VEHICLE_HAS_WORK_ORDERS', $response['code']);
+        $this->assertSame(1, $response['workOrderCount']);
+        $this->assertStringContainsString('ιστορικό επισκευών', $response['error']);
+
+        // Verify vehicle and work order still exist in DB
+        $this->entityManager->clear();
+        $this->assertNotNull($this->entityManager->getRepository(Vehicle::class)->find($vehicle->getId()));
+        $this->assertNotNull($this->entityManager->getRepository(WorkOrder::class)->find($workOrder->getId()));
     }
 
     public function testCannotDeleteCustomerWithWorkOrders(): void

@@ -200,6 +200,15 @@ final class WorkOrderController extends AbstractController
             return $this->json(['error' => 'Work order not found'], Response::HTTP_NOT_FOUND);
         }
 
+        if ($workOrder->getStatus() === 'delivered' && !$this->isGranted('ROLE_GARAGE_ADMIN')) {
+            if ($dto->price !== null || $dto->odometerKm !== null || $dto->status !== null || $dto->date !== null || $dto->description !== null) {
+                return $this->json([
+                    'error' => 'Δεν επιτρέπεται η τροποποίηση παραδοθείσας επισκευής από μηχανικό.',
+                    'code' => 'DELIVERED_REPAIR_UPDATE_LOCKED',
+                ], Response::HTTP_FORBIDDEN);
+            }
+        }
+
         if ($dto->date !== null) {
             $parsedDate = $this->parseDate($dto->date);
             if ($parsedDate instanceof \DateTimeImmutable) {
@@ -288,6 +297,14 @@ final class WorkOrderController extends AbstractController
         $workOrder = $this->findWorkOrderScopedToGarage($id, $garage);
         if (!$workOrder instanceof WorkOrder) {
             return $this->json(['error' => 'Work order not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $isHistorical = $workOrder->getStatus() === 'delivered' || $workOrder->getPickedUpAt() !== null;
+        if ($isHistorical && !$this->isGranted('ROLE_GARAGE_ADMIN')) {
+            return $this->json([
+                'error' => 'Μόνο ο διαχειριστής του συνεργείου μπορεί να διαγράψει ιστορικές επισκευές.',
+                'code' => 'HISTORICAL_REPAIR_DELETE_FORBIDDEN',
+            ], Response::HTTP_FORBIDDEN);
         }
 
         $this->entityManager->remove($workOrder);

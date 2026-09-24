@@ -239,6 +239,7 @@ final class VehicleController extends AbstractController
     }
 
     #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
+    #[IsGranted('ROLE_GARAGE_ADMIN')]
     public function delete(string $id): JsonResponse
     {
         $garage = $this->resolveCurrentGarage();
@@ -249,6 +250,15 @@ final class VehicleController extends AbstractController
         $vehicle = $this->findVehicleScopedToGarage($id, $garage);
         if (!$vehicle instanceof Vehicle) {
             return $this->json(['error' => 'Vehicle not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $workOrderCount = $this->workOrderRepository->count(['vehicle' => $vehicle, 'garage' => $garage]);
+        if ($workOrderCount > 0) {
+            return $this->json([
+                'error' => 'Δεν είναι δυνατή η διαγραφή οχήματος με καταγεγραμμένο ιστορικό επισκευών.',
+                'code' => 'VEHICLE_HAS_WORK_ORDERS',
+                'workOrderCount' => $workOrderCount,
+            ], Response::HTTP_CONFLICT);
         }
 
         $this->entityManager->remove($vehicle);

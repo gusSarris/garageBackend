@@ -869,4 +869,193 @@ class WorkOrderManagementTest extends WebTestCase
         );
         $this->assertSame(201, $this->client->getResponse()->getStatusCode());
     }
+
+    public function testMechanicCannotDeleteHistoricalWorkOrderButAdminCan(): void
+    {
+        $garage = $this->createGarage('hist_del_wo');
+        $mechanic = $this->createGarageUser($garage, 'ROLE_MECHANIC');
+        $admin = $this->createGarageUser($garage, 'ROLE_GARAGE_ADMIN');
+        $customer = $this->createCustomer($garage);
+        $vehicle = $this->createVehicle($garage, $customer);
+        $vehicle2 = $this->createVehicle($garage, $customer);
+
+        $deliveredWo = $this->createWorkOrder($garage, $customer, $vehicle, [
+            'status' => 'delivered',
+            'pickedUpAt' => new \DateTimeImmutable('-5 days'),
+        ]);
+
+        $pickedUpWo = $this->createWorkOrder($garage, $customer, $vehicle2, [
+            'status' => 'completed',
+            'pickedUpAt' => new \DateTimeImmutable('-1 day'),
+        ]);
+
+        $mechanicToken = $this->getJwtToken($mechanic);
+        $adminToken = $this->getJwtToken($admin);
+
+        // 1. Mechanic attempts to delete delivered work order -> 403 Forbidden
+        $this->client->request(
+            'DELETE',
+            '/api/garage/work-orders/' . $deliveredWo->getId()->toRfc4122(),
+            server: ['HTTP_AUTHORIZATION' => 'Bearer ' . $mechanicToken]
+        );
+        $this->assertSame(403, $this->client->getResponse()->getStatusCode());
+        $res = json_decode($this->client->getResponse()->getContent(), true);
+        $this->assertSame('HISTORICAL_REPAIR_DELETE_FORBIDDEN', $res['code']);
+        $this->assertStringContainsString('ιστορικές επισκευές', $res['error']);
+
+        // Verify entity still exists in DB
+        $this->entityManager->clear();
+        $this->assertNotNull($this->entityManager->find(WorkOrder::class, $deliveredWo->getId()));
+
+        // 2. Work order with status != delivered but pickedUpAt != null is also historical -> 403 Forbidden for mechanic
+        $this->client->request(
+            'DELETE',
+            '/api/garage/work-orders/' . $pickedUpWo->getId()->toRfc4122(),
+            server: ['HTTP_AUTHORIZATION' => 'Bearer ' . $mechanicToken]
+        );
+        $this->assertSame(403, $this->client->getResponse()->getStatusCode());
+        $resPickedUp = json_decode($this->client->getResponse()->getContent(), true);
+        $this->assertSame('HISTORICAL_REPAIR_DELETE_FORBIDDEN', $resPickedUp['code']);
+
+        // 3. Admin deletes delivered work order -> 200 OK
+        $this->client->request(
+            'DELETE',
+            '/api/garage/work-orders/' . $deliveredWo->getId()->toRfc4122(),
+            server: ['HTTP_AUTHORIZATION' => 'Bearer ' . $adminToken]
+        );
+        $this->assertSame(200, $this->client->getResponse()->getStatusCode());
+        $adminRes = json_decode($this->client->getResponse()->getContent(), true);
+        $this->assertSame('Work order successfully deleted', $adminRes['message']);
+
+        // Verify entity removed from DB
+        $this->entityManager->clear();
+        $this->assertNull($this->entityManager->find(WorkOrder::class, $deliveredWo->getId()));
+    }
+
+    public function testMechanicCannotUpdateCriticalFieldsOnDeliveredWorkOrderButAdminCan(): void
+    {
+        $garage = $this->createGarage('deliv_upd_lock');
+        $mechanic = $this->createGarageUser($garage, 'ROLE_MECHANIC');
+        $admin = $this->createGarageUser($garage, 'ROLE_GARAGE_ADMIN');
+        $customer = $this->createCustomer($garage);
+        $vehicle = $this->createVehicle($garage, $customer);
+
+        $deliveredWo = $this->createWorkOrder($garage, $customer, $vehicle, [
+            'status' => 'delivered',
+            'price' => '150.00',
+            'odometerKm' => 45000,
+            'description' => 'Original delivered service',
+            'pickedUpAt' => new \DateTimeImmutable('-2 days'),
+        ]);
+
+        $mechanicToken = $this->getJwtToken($mechanic);
+        $adminToken = $this->getJwtToken($admin);
+        $woId = $deliveredWo->getId()->toRfc4122();
+
+        // 1. Mechanic attempts to mutate price -> 403 Forbidden
+        $this->client->request(
+            'PATCH',
+            '/api/garage/work-orders/' . $woId,
+            server: [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $mechanicToken,
+            ],
+            content: json_encode(['price' => '250.00'])
+        );
+        $this->assertSame(403, $this->client->getResponse()->getStatusCode());
+        $res = json_decode($this->client->getResponse()->getContent(), true);
+        $this->assertSame('DELIVERED_REPAIR_UPDATE_LOCKED', $res['code']);
+        $this->assertStringContainsString('παραδοθείσας επισκευής', $res['error']);
+
+        // 2. Mechanic attempts to mutate odometerKm -> 403 Forbidden
+        $this->client->request(
+            'PATCH',
+            '/api/garage/work-orders/' . $woId,
+            server: [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $mechanicToken,
+            ],
+            content: json_encode(['odometerKm' => 99000])
+        );
+        $this->assertSame(403, $this->client->getResponse()->getStatusCode());
+
+        // 3. Mechanic attempts to mutate status -> 403 Forbidden
+        $this->client->request(
+            'PATCH',
+            '/api/garage/work-orders/' . $woId,
+            server: [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $mechanicToken,
+            ],
+            content: json_encode(['status' => 'in_progress'])
+        );
+        $this->assertSame(403, $this->client->getResponse()->getStatusCode());
+
+        // 4. Mechanic attempts to mutate date -> 403 Forbidden
+        $this->client->request(
+            'PATCH',
+            '/api/garage/work-orders/' . $woId,
+            server: [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $mechanicToken,
+            ],
+            content: json_encode(['date' => '2026-01-01'])
+        );
+        $this->assertSame(403, $this->client->getResponse()->getStatusCode());
+
+        // 5. Mechanic attempts to mutate description -> 403 Forbidden
+        $this->client->request(
+            'PATCH',
+            '/api/garage/work-orders/' . $woId,
+            server: [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $mechanicToken,
+            ],
+            content: json_encode(['description' => 'Hacked description text'])
+        );
+        $this->assertSame(403, $this->client->getResponse()->getStatusCode());
+
+        // Verify entity in DB was untouched
+        $this->entityManager->clear();
+        $reloaded = $this->entityManager->find(WorkOrder::class, $deliveredWo->getId());
+        $this->assertSame('150.00', $reloaded->getPrice());
+        $this->assertSame(45000, $reloaded->getOdometerKm());
+        $this->assertSame('delivered', $reloaded->getStatus());
+
+        // 6. Mechanic can still update non-critical field (notes) -> 200 OK
+        $this->client->request(
+            'PATCH',
+            '/api/garage/work-orders/' . $woId,
+            server: [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $mechanicToken,
+            ],
+            content: json_encode(['notes' => 'Customer called to thank for service'])
+        );
+        $this->assertSame(200, $this->client->getResponse()->getStatusCode());
+
+        // 7. Admin updates price and odometerKm -> 200 OK
+        $this->client->request(
+            'PATCH',
+            '/api/garage/work-orders/' . $woId,
+            server: [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $adminToken,
+            ],
+            content: json_encode([
+                'price' => '200.00',
+                'odometerKm' => 46000,
+            ])
+        );
+        $this->assertSame(200, $this->client->getResponse()->getStatusCode());
+        $adminData = json_decode($this->client->getResponse()->getContent(), true);
+        $this->assertSame('200.00', $adminData['price']);
+        $this->assertSame(46000, $adminData['odometerKm']);
+
+        // Verify DB updated by Admin
+        $this->entityManager->clear();
+        $adminReloaded = $this->entityManager->find(WorkOrder::class, $deliveredWo->getId());
+        $this->assertSame('200.00', $adminReloaded->getPrice());
+        $this->assertSame(46000, $adminReloaded->getOdometerKm());
+    }
 }

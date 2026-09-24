@@ -14,6 +14,14 @@ None
 None
 
 ## History
+- **mechanic-crud-guardrails** (Completed: 2026-09-24):
+  - In `VehicleController::delete` (`DELETE /api/garage/vehicles/{id}`), restricted vehicle deletion strictly to `ROLE_GARAGE_ADMIN` via `#[IsGranted('ROLE_GARAGE_ADMIN')]`, rejecting mechanics with HTTP 403 Forbidden.
+  - Implemented delete guardrail in `VehicleController::delete` checking for existing repair orders (`WorkOrder`) via `WorkOrderRepository::count(['vehicle' => $vehicle, 'garage' => $garage])`. Returns HTTP 409 Conflict with code `VEHICLE_HAS_WORK_ORDERS`, count, and descriptive error message if work orders exist.
+  - In `WorkOrderController::delete` (`DELETE /api/garage/work-orders/{id}`), restricted deletion of historical work orders (`status === 'delivered'` or `pickedUpAt !== null`) to `ROLE_GARAGE_ADMIN`, returning HTTP 403 Forbidden with code `HISTORICAL_REPAIR_DELETE_FORBIDDEN` to mechanics, while allowing deletion of active work orders.
+  - In `WorkOrderController::update` (`PATCH /api/garage/work-orders/{id}`), locked delivered work orders against mutation of critical fields (`price`, `odometerKm`, `status`, `date`, `description`) by mechanics with HTTP 403 Forbidden (`DELIVERED_REPAIR_UPDATE_LOCKED`), allowing updates only by `ROLE_GARAGE_ADMIN`.
+  - Maintained strict multi-tenant isolation across all endpoints scoped to `$user->getGarage()`.
+  - Expanded functional test suites in `tests/Garage/CustomerVehicleManagementTest.php` and `tests/Garage/WorkOrderManagementTest.php` covering all role restrictions, guardrail conflicts, active vs historical repair logic, and cross-tenant isolation. Full test suite passing (197 tests, 1279 assertions).
+
 - **vehicle-past-service-history** (Completed: 2026-09-24):
   - Implemented `GET /api/garage/vehicles/{id}/history` endpoint in `VehicleController` with strict tenant isolation, 404 for cross-tenant entities, and `ROLE_MECHANIC` access control.
   - Added query method `findServiceHistoryByVehicle` to `WorkOrderRepository` with ordering (`date DESC, createdAt DESC`), limit enforcement, and optional `exclude_active` filtering.
