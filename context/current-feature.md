@@ -14,6 +14,13 @@ None
 None
 
 ## History
+- **vehicle-past-service-history** (Completed: 2026-09-24):
+  - Implemented `GET /api/garage/vehicles/{id}/history` endpoint in `VehicleController` with strict tenant isolation, 404 for cross-tenant entities, and `ROLE_MECHANIC` access control.
+  - Added query method `findServiceHistoryByVehicle` to `WorkOrderRepository` with ordering (`date DESC, createdAt DESC`), limit enforcement, and optional `exclude_active` filtering.
+  - Formatted past service history payload according to spec with date, Greek status labels, description, price, odometerKm, notes, partsNotes, and ATOM timestamps.
+  - Implemented comprehensive functional test suite in `tests/Garage/VehicleHistoryApiTest.php` (8 tests, 48 assertions). Full test suite passing (194 tests, 1240 assertions).
+  - Paired with frontend feature branch `feature/vehicle-past-service-history`.
+
 - **customer-permissions-and-delete-guardrails** (Completed: 2026-09-24):
   - In `CustomerController::delete` (`DELETE /api/garage/customers/{id}`), restricted customer deletion strictly to `ROLE_GARAGE_ADMIN` via `#[IsGranted('ROLE_GARAGE_ADMIN')]`, rejecting mechanics with HTTP 403 Forbidden.
   - Implemented delete guardrail in `CustomerController::delete` checking for existing repair orders (`WorkOrder`) via `WorkOrderRepository::count(['customer' => $customer, 'garage' => $garage])`. Returns HTTP 409 Conflict with code `CUSTOMER_HAS_WORK_ORDERS`, count, and descriptive error message if work orders exist.

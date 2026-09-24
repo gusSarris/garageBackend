@@ -8,8 +8,10 @@ use App\Entity\Customer;
 use App\Entity\Garage;
 use App\Entity\User;
 use App\Entity\Vehicle;
+use App\Entity\WorkOrder;
 use App\Repository\CustomerRepository;
 use App\Repository\VehicleRepository;
+use App\Repository\WorkOrderRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -26,6 +28,7 @@ final class VehicleController extends AbstractController
     public function __construct(
         private readonly VehicleRepository $vehicleRepository,
         private readonly CustomerRepository $customerRepository,
+        private readonly WorkOrderRepository $workOrderRepository,
         private readonly EntityManagerInterface $entityManager,
     ) {
     }
@@ -113,6 +116,38 @@ final class VehicleController extends AbstractController
         }
 
         return $this->json($this->formatVehicleDetail($vehicle));
+    }
+
+    #[Route('/{id}/history', name: 'history', methods: ['GET'])]
+    public function history(string $id, Request $request): JsonResponse
+    {
+        $garage = $this->resolveCurrentGarage();
+        if (!$garage instanceof Garage) {
+            return $this->json(['error' => 'No garage associated with this account.'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $vehicle = $this->findVehicleScopedToGarage($id, $garage);
+        if (!$vehicle instanceof Vehicle) {
+            return $this->json(['error' => 'Vehicle not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $limit = $request->query->getInt('limit', 20);
+        if ($limit <= 0) {
+            $limit = 20;
+        }
+
+        $excludeActive = $request->query->getBoolean('exclude_active', false);
+
+        $workOrders = $this->workOrderRepository->findServiceHistoryByVehicle(
+            $garage,
+            $vehicle,
+            $limit,
+            $excludeActive
+        );
+
+        $data = array_map(fn (WorkOrder $workOrder) => $this->formatWorkOrderHistory($workOrder), $workOrders);
+
+        return $this->json($data);
     }
 
     #[Route('/{id}', name: 'update', methods: ['PATCH'])]
@@ -329,6 +364,35 @@ final class VehicleController extends AbstractController
                 'phone' => $customer?->getPhone(),
                 'email' => $customer?->getEmail(),
             ],
+        ];
+    }
+
+    private function formatWorkOrderHistory(WorkOrder $workOrder): array
+    {
+        $status = $workOrder->getStatus() ?? '';
+        $statusLabels = [
+            'delivered' => 'Παραδόθηκε',
+            'completed' => 'Ολοκληρώθηκε',
+            'in_progress' => 'Σε εξέλιξη',
+            'checked_in' => 'Παραλαβή',
+            'scheduled' => 'Προγραμματισμένο',
+            'cancelled' => 'Ακυρώθηκε',
+        ];
+
+        return [
+            'id' => $workOrder->getId()?->toRfc4122(),
+            'date' => $workOrder->getDate()?->format('Y-m-d'),
+            'status' => $status,
+            'statusLabel' => $statusLabels[$status] ?? ucfirst($status),
+            'description' => $workOrder->getDescription(),
+            'price' => $workOrder->getPrice(),
+            'odometerKm' => $workOrder->getOdometerKm(),
+            'notes' => $workOrder->getNotes(),
+            'partsNotes' => $workOrder->getPartsNotes(),
+            'checkedInAt' => $workOrder->getCheckedInAt()?->format(\DateTimeInterface::ATOM),
+            'completedAt' => $workOrder->getCompletedAt()?->format(\DateTimeInterface::ATOM),
+            'pickedUpAt' => $workOrder->getPickedUpAt()?->format(\DateTimeInterface::ATOM),
+            'createdAt' => $workOrder->getCreatedAt()?->format(\DateTimeInterface::ATOM),
         ];
     }
 }

@@ -129,4 +129,29 @@ class WorkOrderRepository extends ServiceEntityRepository
     {
         return $this->findActiveWorkOrderByVehicle($garage, $vehicle) !== null;
     }
+
+    /**
+     * @return WorkOrder[]
+     */
+    public function findServiceHistoryByVehicle(
+        Garage $garage,
+        Vehicle $vehicle,
+        int $limit = 20,
+        bool $excludeActive = false
+    ): array {
+        $qb = $this->createQueryBuilder('w')
+            ->andWhere('w.garage = :garage')
+            ->andWhere('w.vehicle = :vehicle')
+            ->setParameter('garage', $garage)
+            ->setParameter('vehicle', $vehicle)
+            ->orderBy('w.date', 'DESC')
+            ->addOrderBy('w.createdAt', 'DESC')
+            ->setMaxResults(max(1, min($limit, 100)));
+
+        if ($excludeActive) {
+            $qb->andWhere("w.status IN ('completed', 'delivered')");
+        }
+
+        return $qb->getQuery()->getResult();
+    }
 }
