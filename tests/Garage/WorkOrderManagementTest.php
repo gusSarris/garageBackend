@@ -499,6 +499,7 @@ class WorkOrderManagementTest extends WebTestCase
     {
         $garageA = $this->createGarage('wo_iso_a');
         $mechanicA = $this->createGarageUser($garageA, 'ROLE_MECHANIC');
+        $adminA = $this->createGarageUser($garageA, 'ROLE_GARAGE_ADMIN');
 
         $garageB = $this->createGarage('wo_iso_b');
         $customerB = $this->createCustomer($garageB);
@@ -506,6 +507,7 @@ class WorkOrderManagementTest extends WebTestCase
         $woB = $this->createWorkOrder($garageB, $customerB, $vehicleB, ['description' => 'Target repair']);
 
         $tokenA = $this->getJwtToken($mechanicA);
+        $adminTokenA = $this->getJwtToken($adminA);
         $targetId = $woB->getId()->toRfc4122();
 
         // GET B's work order with A's token
@@ -528,13 +530,21 @@ class WorkOrderManagementTest extends WebTestCase
         );
         $this->assertSame(404, $this->client->getResponse()->getStatusCode());
 
-        // DELETE B's work order with A's token
+        // DELETE B's work order with Admin A's token (Admin has delete permission, cross-tenant returns 404)
+        $this->client->request(
+            'DELETE',
+            '/api/garage/work-orders/' . $targetId,
+            server: ['HTTP_AUTHORIZATION' => 'Bearer ' . $adminTokenA]
+        );
+        $this->assertSame(404, $this->client->getResponse()->getStatusCode());
+
+        // DELETE B's work order with Mechanic A's token -> 403 Forbidden (RBAC checked before tenant lookup)
         $this->client->request(
             'DELETE',
             '/api/garage/work-orders/' . $targetId,
             server: ['HTTP_AUTHORIZATION' => 'Bearer ' . $tokenA]
         );
-        $this->assertSame(404, $this->client->getResponse()->getStatusCode());
+        $this->assertSame(403, $this->client->getResponse()->getStatusCode());
 
         // Verify entity still exists in B
         $this->entityManager->clear();
@@ -590,17 +600,32 @@ class WorkOrderManagementTest extends WebTestCase
     {
         $garage = $this->createGarage('wo_delete');
         $mechanic = $this->createGarageUser($garage, 'ROLE_MECHANIC');
+        $admin = $this->createGarageUser($garage, 'ROLE_GARAGE_ADMIN');
         $customer = $this->createCustomer($garage);
         $vehicle = $this->createVehicle($garage, $customer);
         $wo = $this->createWorkOrder($garage, $customer, $vehicle);
 
-        $token = $this->getJwtToken($mechanic);
+        $mechanicToken = $this->getJwtToken($mechanic);
+        $adminToken = $this->getJwtToken($admin);
         $woId = $wo->getId()->toRfc4122();
 
+        // 1. Mechanic attempts to delete active work order -> 403 Forbidden
         $this->client->request(
             'DELETE',
             '/api/garage/work-orders/' . $woId,
-            server: ['HTTP_AUTHORIZATION' => 'Bearer ' . $token]
+            server: ['HTTP_AUTHORIZATION' => 'Bearer ' . $mechanicToken]
+        );
+        $this->assertSame(403, $this->client->getResponse()->getStatusCode());
+
+        // Assert entity still exists in database
+        $this->entityManager->clear();
+        $this->assertNotNull($this->entityManager->find(WorkOrder::class, $wo->getId()));
+
+        // 2. Admin deletes active work order -> 200 OK
+        $this->client->request(
+            'DELETE',
+            '/api/garage/work-orders/' . $woId,
+            server: ['HTTP_AUTHORIZATION' => 'Bearer ' . $adminToken]
         );
 
         $this->assertSame(200, $this->client->getResponse()->getStatusCode());
@@ -611,7 +636,7 @@ class WorkOrderManagementTest extends WebTestCase
         $this->client->request(
             'GET',
             '/api/garage/work-orders/' . $woId,
-            server: ['HTTP_AUTHORIZATION' => 'Bearer ' . $token]
+            server: ['HTTP_AUTHORIZATION' => 'Bearer ' . $adminToken]
         );
         $this->assertSame(404, $this->client->getResponse()->getStatusCode());
 
@@ -899,23 +924,18 @@ class WorkOrderManagementTest extends WebTestCase
             server: ['HTTP_AUTHORIZATION' => 'Bearer ' . $mechanicToken]
         );
         $this->assertSame(403, $this->client->getResponse()->getStatusCode());
-        $res = json_decode($this->client->getResponse()->getContent(), true);
-        $this->assertSame('HISTORICAL_REPAIR_DELETE_FORBIDDEN', $res['code']);
-        $this->assertStringContainsString('ιστορικές επισκευές', $res['error']);
 
         // Verify entity still exists in DB
         $this->entityManager->clear();
         $this->assertNotNull($this->entityManager->find(WorkOrder::class, $deliveredWo->getId()));
 
-        // 2. Work order with status != delivered but pickedUpAt != null is also historical -> 403 Forbidden for mechanic
+        // 2. Work order with status != delivered but pickedUpAt != null is also forbidden for mechanic -> 403 Forbidden
         $this->client->request(
             'DELETE',
             '/api/garage/work-orders/' . $pickedUpWo->getId()->toRfc4122(),
             server: ['HTTP_AUTHORIZATION' => 'Bearer ' . $mechanicToken]
         );
         $this->assertSame(403, $this->client->getResponse()->getStatusCode());
-        $resPickedUp = json_decode($this->client->getResponse()->getContent(), true);
-        $this->assertSame('HISTORICAL_REPAIR_DELETE_FORBIDDEN', $resPickedUp['code']);
 
         // 3. Admin deletes delivered work order -> 200 OK
         $this->client->request(
@@ -927,9 +947,18 @@ class WorkOrderManagementTest extends WebTestCase
         $adminRes = json_decode($this->client->getResponse()->getContent(), true);
         $this->assertSame('Work order successfully deleted', $adminRes['message']);
 
-        // Verify entity removed from DB
+        // 4. Admin deletes pickedUp work order -> 200 OK
+        $this->client->request(
+            'DELETE',
+            '/api/garage/work-orders/' . $pickedUpWo->getId()->toRfc4122(),
+            server: ['HTTP_AUTHORIZATION' => 'Bearer ' . $adminToken]
+        );
+        $this->assertSame(200, $this->client->getResponse()->getStatusCode());
+
+        // Verify entities removed from DB
         $this->entityManager->clear();
         $this->assertNull($this->entityManager->find(WorkOrder::class, $deliveredWo->getId()));
+        $this->assertNull($this->entityManager->find(WorkOrder::class, $pickedUpWo->getId()));
     }
 
     public function testMechanicCannotUpdateCriticalFieldsOnDeliveredWorkOrderButAdminCan(): void

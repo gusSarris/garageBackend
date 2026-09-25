@@ -14,6 +14,12 @@ None
 None
 
 ## History
+- **disallow-work-order-deletion-by-mechanics** (Completed: 2026-09-25):
+  - In `WorkOrderController::delete` (`DELETE /api/garage/work-orders/{id}`), restricted work order deletion strictly to `ROLE_GARAGE_ADMIN` via `#[IsGranted('ROLE_GARAGE_ADMIN')]`, rejecting any deletion attempts by `ROLE_MECHANIC` (active, scheduled, or delivered) with HTTP 403 Forbidden.
+  - Removed obsolete historical-only deletion check (`HISTORICAL_REPAIR_DELETE_FORBIDDEN`), unifying work order access control with Customer and Vehicle deletion policies.
+  - Maintained strict multi-tenant isolation scoped to `$user->getGarage()`, returning HTTP 404 Not Found for cross-tenant entities.
+  - Updated and expanded functional test suites in `tests/Garage/WorkOrderManagementTest.php` covering mechanic 403 rejection on active and historical repairs, admin 200 deletion on active and historical repairs, and admin cross-tenant 404 isolation. Full test suite passing (197 tests, 1283 assertions).
+
 - **mechanic-crud-guardrails** (Completed: 2026-09-24):
   - In `VehicleController::delete` (`DELETE /api/garage/vehicles/{id}`), restricted vehicle deletion strictly to `ROLE_GARAGE_ADMIN` via `#[IsGranted('ROLE_GARAGE_ADMIN')]`, rejecting mechanics with HTTP 403 Forbidden.
   - Implemented delete guardrail in `VehicleController::delete` checking for existing repair orders (`WorkOrder`) via `WorkOrderRepository::count(['vehicle' => $vehicle, 'garage' => $garage])`. Returns HTTP 409 Conflict with code `VEHICLE_HAS_WORK_ORDERS`, count, and descriptive error message if work orders exist.

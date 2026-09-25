@@ -287,6 +287,7 @@ final class WorkOrderController extends AbstractController
     }
 
     #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
+    #[IsGranted('ROLE_GARAGE_ADMIN')]
     public function delete(string $id): JsonResponse
     {
         $garage = $this->resolveCurrentGarage();
@@ -297,14 +298,6 @@ final class WorkOrderController extends AbstractController
         $workOrder = $this->findWorkOrderScopedToGarage($id, $garage);
         if (!$workOrder instanceof WorkOrder) {
             return $this->json(['error' => 'Work order not found'], Response::HTTP_NOT_FOUND);
-        }
-
-        $isHistorical = $workOrder->getStatus() === 'delivered' || $workOrder->getPickedUpAt() !== null;
-        if ($isHistorical && !$this->isGranted('ROLE_GARAGE_ADMIN')) {
-            return $this->json([
-                'error' => 'Μόνο ο διαχειριστής του συνεργείου μπορεί να διαγράψει ιστορικές επισκευές.',
-                'code' => 'HISTORICAL_REPAIR_DELETE_FORBIDDEN',
-            ], Response::HTTP_FORBIDDEN);
         }
 
         $this->entityManager->remove($workOrder);
