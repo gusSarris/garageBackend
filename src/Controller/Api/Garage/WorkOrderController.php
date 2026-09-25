@@ -209,6 +209,16 @@ final class WorkOrderController extends AbstractController
             }
         }
 
+        if ($dto->price !== null && !$this->isGranted('ROLE_GARAGE_ADMIN')) {
+            $canTweakPrice = (bool) ($garage->getSettings()['permissions']['mecCanTweakPrice'] ?? false);
+            if (!$canTweakPrice) {
+                return $this->json([
+                    'error' => 'Δεν επιτρέπεται η τροποποίηση τιμής από μηχανικό βάσει των ρυθμίσεων του συνεργείου.',
+                    'code' => 'MECHANIC_PRICE_TWEAK_FORBIDDEN',
+                ], Response::HTTP_FORBIDDEN);
+            }
+        }
+
         if ($dto->date !== null) {
             $parsedDate = $this->parseDate($dto->date);
             if ($parsedDate instanceof \DateTimeImmutable) {

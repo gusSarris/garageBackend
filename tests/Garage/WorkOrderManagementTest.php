@@ -432,6 +432,9 @@ class WorkOrderManagementTest extends WebTestCase
             'odometerKm' => 49000,
         ]);
 
+        $garage->setSettings(['permissions' => ['mecCanTweakPrice' => true]]);
+        $this->entityManager->flush();
+
         $token = $this->getJwtToken($mechanic);
 
         $this->client->request(
@@ -1086,5 +1089,80 @@ class WorkOrderManagementTest extends WebTestCase
         $adminReloaded = $this->entityManager->find(WorkOrder::class, $deliveredWo->getId());
         $this->assertSame('200.00', $adminReloaded->getPrice());
         $this->assertSame(46000, $adminReloaded->getOdometerKm());
+    }
+
+    public function testMechanicPriceTweakPermissionsGuardrail(): void
+    {
+        $garage = $this->createGarage('price_tweak_guard');
+        $mechanic = $this->createGarageUser($garage, 'ROLE_MECHANIC');
+        $admin = $this->createGarageUser($garage, 'ROLE_GARAGE_ADMIN');
+        $customer = $this->createCustomer($garage);
+        $vehicle = $this->createVehicle($garage, $customer);
+        $wo = $this->createWorkOrder($garage, $customer, $vehicle, [
+            'status' => 'in_progress',
+            'price' => '100.00',
+        ]);
+
+        $mechanicToken = $this->getJwtToken($mechanic);
+        $adminToken = $this->getJwtToken($admin);
+        $woId = $wo->getId()->toRfc4122();
+
+        // 1. By default, mecCanTweakPrice is false -> Mechanic rejected with 403
+        $this->client->request(
+            'PATCH',
+            '/api/garage/work-orders/' . $woId,
+            server: [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $mechanicToken,
+            ],
+            content: json_encode(['price' => '120.00'])
+        );
+        $this->assertSame(403, $this->client->getResponse()->getStatusCode());
+        $res = json_decode($this->client->getResponse()->getContent(), true);
+        $this->assertSame('MECHANIC_PRICE_TWEAK_FORBIDDEN', $res['code']);
+
+        // Verify price unchanged
+        $this->entityManager->clear();
+        $reloaded = $this->entityManager->find(WorkOrder::class, $wo->getId());
+        $this->assertSame('100.00', $reloaded->getPrice());
+
+        // 2. Admin can always update price even when mecCanTweakPrice is false -> 200 OK
+        $this->client->request(
+            'PATCH',
+            '/api/garage/work-orders/' . $woId,
+            server: [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $adminToken,
+            ],
+            content: json_encode(['price' => '150.00'])
+        );
+        $this->assertSame(200, $this->client->getResponse()->getStatusCode());
+
+        // 3. Admin enables mecCanTweakPrice via settings endpoint -> Mechanic can now update price -> 200 OK
+        $this->client->request(
+            'PATCH',
+            '/api/garage/settings',
+            server: [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $adminToken,
+            ],
+            content: json_encode([
+                'permissions' => ['mecCanTweakPrice' => true],
+            ])
+        );
+        $this->assertSame(200, $this->client->getResponse()->getStatusCode());
+
+        $this->client->request(
+            'PATCH',
+            '/api/garage/work-orders/' . $woId,
+            server: [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $mechanicToken,
+            ],
+            content: json_encode(['price' => '180.00'])
+        );
+        $this->assertSame(200, $this->client->getResponse()->getStatusCode());
+        $updatedData = json_decode($this->client->getResponse()->getContent(), true);
+        $this->assertSame('180.00', $updatedData['price']);
     }
 }

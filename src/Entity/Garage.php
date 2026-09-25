@@ -5,6 +5,7 @@ namespace App\Entity;
 use App\Repository\GarageRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
@@ -54,6 +55,40 @@ class Garage
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $updatedAt = null;
 
+    public const DEFAULT_SETTINGS = [
+        'reminders' => [
+            'kteoDaysBefore' => 30,
+            'serviceMonthsInterval' => 12,
+            'serviceKmInterval' => 5000,
+            'autoRemindersDefault' => true,
+        ],
+        'permissions' => [
+            'mecCanTweakPrice' => false,
+        ],
+        'presets' => [
+            'quickWorkChips' => [
+                'Service',
+                'Λάδια/Φίλτρο',
+                'Τακάκια',
+                'Αλυσίδα/Γρανάζια',
+                'Μπαταρία',
+                'Μπουζί',
+                'Λάστιχα',
+                'Έλεγχος',
+            ],
+            'quickPricePresets' => [20, 50, 80, 120],
+        ],
+        'messaging' => [
+            'smsSenderName' => 'WorkshopHub',
+        ],
+        'display' => [
+            'darkMode' => true,
+        ],
+    ];
+
+    #[ORM\Column(type: Types::JSON, options: ['jsonb' => true], nullable: false)]
+    private array $settings = [];
+
     /**
      * @var Collection<int, Customer>
      */
@@ -101,6 +136,7 @@ class Garage
         $this->users = new ArrayCollection();
         $this->notifications = new ArrayCollection();
         $this->smsTemplates = new ArrayCollection();
+        $this->settings = [];
     }
 
     public function getId(): ?Uuid
@@ -428,6 +464,23 @@ class Garage
                 $smsTemplate->setGarage(null);
             }
         }
+
+        return $this;
+    }
+
+    public function getSettings(): array
+    {
+        return array_replace_recursive(self::DEFAULT_SETTINGS, $this->settings);
+    }
+
+    public function getRawSettings(): array
+    {
+        return $this->settings;
+    }
+
+    public function setSettings(array $settings): static
+    {
+        $this->settings = $settings;
 
         return $this;
     }

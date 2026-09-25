@@ -93,6 +93,7 @@ final class GarageProfileController extends AbstractController
             'postalCode' => $garage->getPostalCode(),
             'subscriptionStatus' => $garage->getSubscriptionStatus(),
             'isActive' => $garage->isActive(),
+            'settings' => $garage->getSettings(),
             'createdAt' => $garage->getCreatedAt()?->format(\DateTimeInterface::ATOM),
             'updatedAt' => $garage->getUpdatedAt()?->format(\DateTimeInterface::ATOM),
         ];

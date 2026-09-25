@@ -14,6 +14,19 @@ None
 None
 
 ## History
+- **garage-settings** (Completed: 2026-09-25):
+  - Added `settings` column (`jsonb` / `Types::JSON`, default `'{}'`) to `Garage` entity with default settings fallback via `DEFAULT_SETTINGS` and `array_replace_recursive` in `Garage::getSettings()`.
+  - Configured settings schema covering: `reminders` (`kteoDaysBefore`, `serviceMonthsInterval`, `serviceKmInterval`, `autoRemindersDefault`), `permissions` (`mecCanTweakPrice`), `presets` (`quickWorkChips`, `quickPricePresets`), `messaging` (`smsSenderName`), and `display` (`darkMode`).
+  - Generated and executed database migration `Version20260925133935` across dev and test environments.
+  - Implemented typed DTOs under `App\DTO\Garage\Settings` with validation constraints for partial deep updates.
+  - Implemented `App\Controller\Api\Garage\GarageSettingsController` with endpoints:
+    - `GET /api/garage/settings`: Returns workshop settings, accessible to `ROLE_MECHANIC` and `ROLE_GARAGE_ADMIN`.
+    - `PATCH /api/garage/settings`: Deep-merges partial updates and persists changes, restricted strictly to `ROLE_GARAGE_ADMIN`.
+  - Enriched `GET /api/garage` profile response in `GarageProfileController` to include `'settings' => $garage->getSettings()`.
+  - Enforced `permissions.mecCanTweakPrice` guardrail in `WorkOrderController::update`, rejecting price modifications by `ROLE_MECHANIC` with HTTP 403 Forbidden (`MECHANIC_PRICE_TWEAK_FORBIDDEN`) when disabled, while allowing when enabled.
+  - Enforced strict tenant isolation scoped to `$user->getGarage()` with 401 unauthenticated and 403 inactive workshop checks.
+  - Implemented comprehensive functional test suites in `tests/Garage/GarageSettingsTest.php` and `tests/Garage/WorkOrderManagementTest.php` (all 206 tests, 1339 assertions passing).
+
 - **disallow-work-order-deletion-by-mechanics** (Completed: 2026-09-25):
   - In `WorkOrderController::delete` (`DELETE /api/garage/work-orders/{id}`), restricted work order deletion strictly to `ROLE_GARAGE_ADMIN` via `#[IsGranted('ROLE_GARAGE_ADMIN')]`, rejecting any deletion attempts by `ROLE_MECHANIC` (active, scheduled, or delivered) with HTTP 403 Forbidden.
   - Removed obsolete historical-only deletion check (`HISTORICAL_REPAIR_DELETE_FORBIDDEN`), unifying work order access control with Customer and Vehicle deletion policies.
