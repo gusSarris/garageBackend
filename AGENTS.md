@@ -118,28 +118,31 @@ things up in the project instead of relying on memory:
 - Read the installed source and docblocks under `vendor/`.
 - Docs: https://symfony.com/doc/current/ (switch to the version matching
   `composer.json` if it differs).
-  ## Context & Feature Management
 
-Read the `context/current-feature.md` to understand the active task.
+## Boundaries
+- Ignore: `vendor/`, `var/cache/`, `var/log/`, `.env.local`, `node_modules/`
 
-## Commands
+## Context & Feature Management
 
-**1. Command: `Create the feature <feature-name>`**
-When instructed to create a feature, execute these steps autonomously and stop:
-1.create a git branch  feature/<feature-name>
-2. Create or update a specific markdown file in `context/features/` (e.g., `context/features/<feature-name>.md`) with the specifications.
-3. Update `context/current-feature.md` to reflect the active status, goals, and notes.
+`context/current-feature.md` and `context/features/` are **shared** with
+`frontendGarage/` and live at the workspace root, not inside this repo — read
+`../context/current-feature.md` to understand the active task. See the root
+`AGENTS.md` → "Shared Feature State" for how scope (`backend`/`frontend`/`both`)
+is recorded and resolved.
 
-**2. Command: `Implement the feature`**
+For `Create the feature <feature-name>`, `Tidy up`, and `checkUX`, follow the
+shared workflow defined in the root `AGENTS.md`.
+
+**Command: `Implement the feature`**
 When instructed to implement the feature, execute these steps autonomously and sequentially:
-1. Generate the required code **strictly by using** the maker bundle via the Docker workflow (e.g., `docker compose exec -T php bin/console make:...`). 
-   * **CRITICAL RULE:** Do NOT write PHP code (Controllers, Services, Entities, etc.) manually from scratch. 
+1. Generate the required code **strictly by using** the maker bundle via the Docker workflow (e.g., `docker compose exec -T php bin/console make:...`).
+   * **CRITICAL RULE:** Do NOT write PHP code (Controllers, Services, Entities, etc.) manually from scratch.
    * If a specific file or logic is impossible to generate using `bin/console`, you **MUST stop and ask for my permission** before writing or editing the code manually.
 2. Generate the tests (`WebTestCase` or `KernelTestCase`), preferring `bin/console make:test` if applicable.
 3. Run the tests using the Docker workflow: `docker compose exec -T php php bin/phpunit`.
 
-**3. Command: `Tidy up`**
-When the user says `Tidy up`, execute this sequence autonomously:
-1. Update the history in `context/current-feature.md` with a summary of the completed feature.
-2. Clean the data (Status, Goals, Notes) from `context/current-feature.md` to reset it for the next task.
-3. Execute the git operations: add changes, commit with a descriptive message, merge the branch (if instructed), delete the branch, and push.
+**Command: `checkSecurity`**
+When instructed, act as a top-tier security consultant auditing this API end to end:
+1. Review authentication/authorization (SecurityBundle config, voters, authenticators, `#[IsGranted]` coverage), input validation (`#[Assert\...]` coverage, mass-assignment risk via `#[MapRequestPayload]`), rate limiting, CORS configuration, secrets handling (`.env.local`, `bin/console secrets:set`), raw/unparameterized SQL, and known-vulnerable dependencies (`composer audit` if available).
+2. List concrete findings, each with a severity (Critical / High / Medium / Low) and a file/line reference where possible.
+3. Propose a specific fix for each finding. Do not apply any fix automatically — wait for explicit approval, finding by finding or in bulk, before editing code.
