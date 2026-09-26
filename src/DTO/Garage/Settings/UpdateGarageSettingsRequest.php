@@ -7,6 +7,9 @@ use Symfony\Component\Validator\Constraints as Assert;
 final readonly class UpdateGarageSettingsRequest
 {
     public function __construct(
+        #[Assert\Length(min: 2, max: 255, minMessage: 'Το όνομα συνεργείου πρέπει να έχει τουλάχιστον 2 χαρακτήρες.')]
+        public ?string $garageName = null,
+
         #[Assert\Valid]
         public ?RemindersSettingsRequest $reminders = null,
 

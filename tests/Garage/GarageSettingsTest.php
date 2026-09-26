@@ -91,7 +91,7 @@ class GarageSettingsTest extends WebTestCase
 
     public function testFetchDefaultSettings(): void
     {
-        [$admin] = $this->createGarageAdmin();
+        [$admin, $garage] = $this->createGarageAdmin();
         $token = $this->getJwtToken($admin);
 
         $this->client->request(
@@ -102,6 +102,10 @@ class GarageSettingsTest extends WebTestCase
 
         $this->assertSame(200, $this->client->getResponse()->getStatusCode());
         $data = json_decode($this->client->getResponse()->getContent(), true);
+
+        // Garage Name
+        $this->assertArrayHasKey('garageName', $data);
+        $this->assertSame($garage->getName(), $data['garageName']);
 
         // Reminders
         $this->assertArrayHasKey('reminders', $data);
@@ -135,6 +139,7 @@ class GarageSettingsTest extends WebTestCase
         $token = $this->getJwtToken($admin);
 
         $patchPayload = [
+            'garageName' => 'Sarris Performance Garage',
             'permissions' => [
                 'mecCanTweakPrice' => true,
             ],
@@ -163,6 +168,7 @@ class GarageSettingsTest extends WebTestCase
         $data = json_decode($this->client->getResponse()->getContent(), true);
 
         // Check updated fields
+        $this->assertSame('Sarris Performance Garage', $data['garageName']);
         $this->assertTrue($data['permissions']['mecCanTweakPrice']);
         $this->assertFalse($data['display']['darkMode']);
         $this->assertSame('Sarris Moto', $data['messaging']['smsSenderName']);
@@ -189,8 +195,70 @@ class GarageSettingsTest extends WebTestCase
 
         $this->assertSame(200, $this->client->getResponse()->getStatusCode());
         $data = json_decode($this->client->getResponse()->getContent(), true);
+        $this->assertArrayHasKey('garageName', $data);
+        $this->assertSame($garage->getName(), $data['garageName']);
         $this->assertArrayHasKey('permissions', $data);
         $this->assertFalse($data['permissions']['mecCanTweakPrice']);
+    }
+
+    public function testUpdateGarageNamePersistsAndReflectsInGet(): void
+    {
+        [$admin, $garage] = $this->createGarageAdmin();
+        $token = $this->getJwtToken($admin);
+
+        // 1. Update garage name via PATCH
+        $this->client->request(
+            'PATCH',
+            '/api/garage/settings',
+            server: [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+            ],
+            content: json_encode([
+                'garageName' => 'Updated Garage Name Test',
+            ])
+        );
+
+        $this->assertSame(200, $this->client->getResponse()->getStatusCode());
+        $data = json_decode($this->client->getResponse()->getContent(), true);
+        $this->assertSame('Updated Garage Name Test', $data['garageName']);
+
+        // 2. Fetch settings via GET to confirm persistence
+        $this->client->request(
+            'GET',
+            '/api/garage/settings',
+            server: ['HTTP_AUTHORIZATION' => 'Bearer ' . $token]
+        );
+
+        $this->assertSame(200, $this->client->getResponse()->getStatusCode());
+        $getData = json_decode($this->client->getResponse()->getContent(), true);
+        $this->assertSame('Updated Garage Name Test', $getData['garageName']);
+
+        // 3. Confirm entity in database
+        $this->entityManager->clear();
+        $reloadedGarage = $this->entityManager->getRepository(Garage::class)->find($garage->getId());
+        $this->assertNotNull($reloadedGarage);
+        $this->assertSame('Updated Garage Name Test', $reloadedGarage->getName());
+    }
+
+    public function testValidationRejectsTooShortGarageName(): void
+    {
+        [$admin] = $this->createGarageAdmin();
+        $token = $this->getJwtToken($admin);
+
+        $this->client->request(
+            'PATCH',
+            '/api/garage/settings',
+            server: [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+            ],
+            content: json_encode([
+                'garageName' => 'A',
+            ])
+        );
+
+        $this->assertSame(422, $this->client->getResponse()->getStatusCode());
     }
 
     public function testMechanicCannotUpdateSettings(): void

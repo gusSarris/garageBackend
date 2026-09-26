@@ -30,7 +30,7 @@ final class GarageSettingsController extends AbstractController
             return $this->json(['error' => 'No garage associated with this account.'], Response::HTTP_BAD_REQUEST);
         }
 
-        return $this->json($garage->getSettings());
+        return $this->json($this->formatSettingsResponse($garage));
     }
 
     #[Route('', name: 'update', methods: ['PATCH'])]
@@ -43,13 +43,25 @@ final class GarageSettingsController extends AbstractController
             return $this->json(['error' => 'No garage associated with this account.'], Response::HTTP_BAD_REQUEST);
         }
 
+        if ($dto->garageName !== null) {
+            $garage->setName(trim($dto->garageName));
+        }
+
         $newSettings = array_replace_recursive($garage->getRawSettings(), $dto->toArray());
         $garage->setSettings($newSettings);
         $garage->setUpdatedAt(new \DateTimeImmutable());
 
         $this->entityManager->flush();
 
-        return $this->json($garage->getSettings());
+        return $this->json($this->formatSettingsResponse($garage));
+    }
+
+    private function formatSettingsResponse(Garage $garage): array
+    {
+        return array_merge(
+            ['garageName' => $garage->getName()],
+            $garage->getSettings()
+        );
     }
 
     private function resolveCurrentGarage(): ?Garage
